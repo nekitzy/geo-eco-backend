@@ -1,0 +1,18 @@
+# Конфиденциально
+.env
+*.db
+
+# Данные
+data/
+*.mseed
+*.seed
+
+# Python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/

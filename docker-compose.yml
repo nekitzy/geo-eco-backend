@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: geo_monitoring_db
+    environment:
+      POSTGRES_DB: noiselevel
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    build: .
+    container_name: geo_monitoring_backend
+    depends_on:
+      - postgres
+    environment:
+      DB_NAME: noiselevel
+      DB_USER: postgres
+      DB_PASSWORD: 1234
+      DB_HOST: postgres
+      DB_PORT: 5432
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SEEDLINK_ADDRESS: ${SEEDLINK_ADDRESS:-192.168.1.10:18000}
+      SEEDLINK_SELECT: NT_B8:CH3
+      DATA_DIR: /app/data
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

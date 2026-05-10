@@ -1,0 +1,5189 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мониторинг Онлайн | ГеоМониАкадем</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        overflow: hidden; /* Убираем скролл страницы */
+        background: #f0f2f5;
+    }
+
+    /* Карта на весь экран */
+    #map {
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+    }
+
+    /* Плавающий заголовок */
+    .floating-header {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 12px 30px;
+        border-radius: 50px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .floating-header h1 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        background: #4CAF50;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.last-anomalies-t{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-top:20px;
+}
+
+.tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.tooltip-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--dark-color);
+    flex: 1;
+}
+
+.tooltip-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.tooltip-close:hover {
+    background: var(--light-bg);
+    color: var(--dark-color);
+}
+
+.tooltip-location {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tooltip-badges {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.tooltip-badge {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    background: var(--light-bg);
+    border-radius: 20px;
+    color: var(--text-dark);
+}
+
+.tooltip-noise {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(13, 115, 119, 0.1), rgba(20, 145, 155, 0.1));
+    border-radius: 12px;
+}
+
+.tooltip-noise-value {
+    font-size: 1.2rem;
+    font-weight: 400;
+    color: var(--primary-color);
+    line-height: 1;
+}
+
+.tooltip-noise-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
+.tooltip-data-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.tooltip-data-item {
+    text-align: center;
+    padding: 12px;
+    background: var(--light-bg);
+    border-radius: 8px;
+}
+
+.tooltip-data-value {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--dark-color);
+}
+
+.tooltip-data-label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+
+/* Графики и статистика */
+.tooltip-chart {
+    height: 180px;
+    background: var(--light-bg);
+    border-radius: 12px;
+    padding: 15px;
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.stats-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.stat-card-compact {
+    text-align: center;
+    padding: 12px;
+    background: white;
+    border-radius: 10px;
+    border: 2px solid var(--light-bg);
+}
+
+.stat-card-compact.orange {
+    background: rgba(255, 152, 0, 0.1);
+    border-color: rgba(255, 152, 0, 0.3);
+}
+
+.stat-card-compact.blue {
+    background: rgba(66, 165, 245, 0.1);
+    border-color: rgba(66, 165, 245, 0.3);
+}
+
+.stat-card-compact.dark {
+    background: rgba(66, 66, 66, 0.9);
+    border-color: rgba(66, 66, 66, 0.3);
+}
+
+.stat-value-compact {
+    font-size: 1.8rem;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.stat-label-compact {
+    font-size: 0.75rem;
+    color: var(--text-light);
+}
+
+.stat-card-compact.orange .stat-value-compact {
+    color: #FF9800;
+}
+
+.stat-card-compact.blue .stat-value-compact {
+    color: #42A5F5;
+}
+
+.stat-card-compact.dark .stat-value-compact {
+    color: white;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.metric-item {
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--light-bg);
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    display: block;
+    margin-bottom: 3px;
+}
+
+.metric-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--dark-color);
+}
+
+.operation-info {
+    margin-bottom: 20px;
+}
+
+.operation-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--light-bg);
+}
+
+.operation-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.operation-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--dark-color);
+}
+
+/* Анимация для кнопок */
+@keyframes pulse-chat {
+    0% { box-shadow: 0 0 0 0 rgba(26, 188, 156, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(26, 188, 156, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(26, 188, 156, 0); }
+}
+
+@keyframes pulse-request {
+    0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+}
+
+#openChatBot {
+    animation: pulse-chat 2s infinite;
+}
+
+#openSensorRequest {
+    animation: pulse-request 2s infinite;
+}
+
+#openChatBot:hover, #openSensorRequest:hover {
+    transform: scale(1.1);
+}
+
+/* Маркер заявки */
+.request-marker {
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Анимация набора текста */
+@keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-8px); }
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    #chatBotPanel {
+        width: 90% !important;
+        left: 5% !important;
+        bottom: 100px !important;
+    }
+    
+    #sensorRequestPanel {
+        width: 95% !important;
+    }
+
+    .last-anomalies-t{
+    grid-template-columns: repeat(1, 1fr);
+}
+}
+
+#sensorRequestPanel.coordinate-selection-active {
+    top: 10% !important; 
+    opacity: 0.7 !important; 
+    transform: translate(-50%, 0) !important; 
+}
+
+/* Анимация для кнопки выбора координат */
+@keyframes pulse-orange {
+    0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(230, 126, 34, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+}
+
+#openSensorRequest {
+    animation: pulse-orange 2s infinite;
+}
+
+#openSensorRequest:hover {
+    transform: scale(1.1);
+}
+
+/* Маркер заявки */
+.request-marker {
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#sensorDropdown {
+    animation: slideDown 0.3s ease;
+}
+
+#sensorDropdown > div:hover {
+    background: linear-gradient(135deg, rgba(13, 115, 119, 0.05), rgba(20, 145, 155, 0.05)) !important;
+}
+
+#sensorSelectorBtn:hover {
+    background: linear-gradient(135deg, rgba(13, 115, 119, 0.05), rgba(20, 145, 155, 0.05)) !important;
+    border-color: #14919b !important;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    #sensorDropdown {
+        position: fixed;
+        top: auto;
+        left: 5%;
+        right: 5%;
+        max-height: 400px;
+    }
+
+    #openChatBot,#openPredictionPanel,#openAnomalyPanel,#openSeismicPanel,#openSensorRequest,#BackButton{
+        width: 50px !important;
+        height: 50px !important;
+        left: 25px !important;
+    }
+
+    #openAnomalyPanel{
+        bottom: 110px !important;
+    }
+
+    #openSeismicPanel{
+        bottom: 175px !important;
+    }
+
+      #openPredictionPanel{
+        bottom: 240px !important;
+    }
+
+    #openChatBot{
+        bottom: 305px !important;
+    }
+
+    #openSensorRequest{
+        bottom: 370px !important;
+    }
+
+    #map-mode-toggle{
+        left: 25px !important;
+        top: 160px !important;
+    }
+
+    #mode-indicator{
+        top: 210px !important;
+    }
+}
+
+/* Скрытие формы при выборе координат */
+.form-block-hidden {
+    opacity: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+}
+
+/* Активный режим выбора координат */
+.coordinate-selection-active #coordinateSelectionBlock {
+    border-color: #27ae60 !important;
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.1), rgba(46, 204, 113, 0.1)) !important;
+}
+
+.coordinate-selection-active #selectCoordinateBtn {
+    background: linear-gradient(135deg, #27ae60, #2ecc71) !important;
+    cursor: crosshair !important;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    #sensorRequestPanel {
+        width: 95% !important;
+    }
+    
+    #coordinateSelectionBlock {
+        padding: 15px !important;
+    }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .sensor-tooltip {
+        width: 90%;
+        right: 5% !important;
+        left: 5% !important;
+    }
+}
+
+.totalanom {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+@media (max-width: 900px) {
+    .totalanom {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    /* Первая карточка на всю ширину */
+    .totalanom > div:first-child {
+        grid-column: span 2;
+    }
+}
+
+/* Стили карточек */
+.stat-card {
+    text-align: center;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.stat-card.total {
+    background: linear-gradient(135deg, #f6f7c6 0%, #e8e9a6 100%);
+    border: 2px solid #fde910;
+    box-shadow: 0 4px 12px rgba(253, 233, 16, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card.total:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(253, 233, 16, 0.35);
+}
+
+.stat-card.danger {
+    background: linear-gradient(135deg, #f8d7da 0%, #f1b0b7 100%);
+    border: 2px solid #dc3545;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card.danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.35);
+}
+
+.stat-card.warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+    border: 2px solid #ffc107;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card.warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 193, 7, 0.35);
+}
+
+@media (max-width: 768px) {
+    .stat-card {
+        padding: 15px !important;
+        margin-bottom: 10px !important;
+    }
+    .stat-card div:first-child {
+        font-size: 0.85rem !important;
+    }
+    .stat-card div:last-child {
+        font-size: 2rem !important;
+    }
+}
+}
+
+@media (max-width: 600px) {
+    .totalanom {
+        grid-template-columns: 1fr;
+    }
+    
+    .totalanom > div:first-child {
+        grid-column: span 1;
+    }
+}
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+    }
+
+    /* Компактный тултип */
+    .sensor-tooltip {
+        position: absolute;
+        top: 4% !important;
+        bottom: 4% !important;
+        right: 3% !important;
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        z-index: 1001;
+        width: 540px;
+        max-width: 90vw;
+        height: 800px;
+        max-height: 90vh;
+        border: 1px solid rgba(0,0,0,0.05);
+        animation: slideUp 0.3s ease;
+        overflow-y: auto !important;
+        display: flex;
+        flex-direction: column;
+    }
+
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .tooltip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .tooltip-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        line-height: 1.2;
+    }
+
+    .tooltip-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .tooltip-close:hover {
+        background: #f5f5f5;
+        color: #333;
+    }
+
+    /* Блок с основным показателем */
+    .tooltip-main-value {
+        text-align: center;
+        padding: 12px;
+        background: linear-gradient(135deg, rgba(13, 115, 119, 0.05), rgba(20, 145, 155, 0.05));
+        border-radius: 8px;
+        margin-bottom: 12px;
+    }
+
+    .tooltip-value-big {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0d7377;
+        line-height: 1;
+    }
+
+    .tooltip-label-small {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Сетка данных (2 колонки) */
+    .tooltip-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .tooltip-data-item {
+        background: #f8f9fa;
+        padding: 8px;
+        border-radius: 6px;
+        text-align: center;
+    }
+
+    .tooltip-data-value {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #2c3e50;
+    }
+
+    .tooltip-data-label {
+        font-size: 0.7rem;
+        color: #95a5a6;
+        margin-top: 2px;
+    }
+
+    /* Нижняя информация */
+    .tooltip-footer {
+        font-size: 0.7rem;
+        color: #bdc3c7;
+        text-align: center;
+        border-top: 1px solid #eee;
+        padding-top: 8px;
+    }
+
+    /* Маркеры */
+    .sensor-marker-dB {
+        padding: 6px 12px;
+        border-radius: 20px;
+        color: white;
+        font-weight: 700;
+        font-size: 0.85rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        border: 2px solid white;
+        white-space: nowrap;
+    }
+
+    .sensor-marker-dB.normal { background: rgba(76, 175, 80, 0.9); }
+    .sensor-marker-dB.warning { background: rgba(255, 193, 7, 0.9); color: #333; }
+    .sensor-marker-dB.danger { background: rgba(244, 67, 54, 0.9); }
+
+    /* Легенда */
+    .map-legend {
+        background: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        z-index: 1000;
+        font-size: 0.8rem;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 5px;
+    }
+    .legend-item:last-child { margin-bottom: 0; }
+    .legend-color { width: 12px; height: 12px; border-radius: 50%; }
+
+    /* Фиксированная высота панели miniSEED */
+#seismic-panel {
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+#seismic-panel .panel-content {
+    max-height: calc(85vh - 80px) !important;
+    overflow-y: auto !important;
+}
+
+/* Анимация для кнопки предсказания */
+@keyframes pulse-purple {
+    0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(155, 89, 182, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); }
+}
+
+@keyframes pulse-blue {
+    0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(155, 89, 182, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); }
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(155, 89, 182, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); }
+}
+
+#openPredictionPanel {
+    animation: pulse-purple 2s infinite;
+}
+
+#openPredictionPanel:hover {
+    transform: scale(1.1);
+}
+
+#openSeismicPanel {
+    animation: pulse-blue 2s infinite;
+}
+
+#openSeismicPanel:hover {
+    transform: scale(1.1);
+}
+
+#openAnomalyPanel {
+    animation: pulse-red 2s infinite;
+}
+
+#openAnomalyPanel:hover {
+    transform: scale(1.1);
+}
+
+.histogram-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 220px;
+    padding: 20px 10px 40px 10px;
+    background: linear-gradient(180deg, #f8f9fa 0%, #fff 100%);
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    position: relative;
+}
+
+/* Ось Y с разметкой */
+.histogram-y-axis {
+    position: absolute;
+    left: 8px;
+    top: 20px;
+    bottom: 40px;
+    width: 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: #999;
+    pointer-events: none;
+}
+
+.histogram-y-axis::before {
+    content: "Макс";
+    position: absolute;
+    top: -18px;
+    left: 0;
+    font-weight: 600;
+    color: #666;
+}
+
+.histogram-y-axis::after {
+    content: "0";
+    position: absolute;
+    bottom: -18px;
+    left: 0;
+    font-weight: 600;
+    color: #666;
+}
+
+/* Столбец гистограммы */
+.histogram-bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    max-width: 80px;
+    min-width: 45px;
+    padding: 0 4px;
+    position: relative;
+}
+
+.histogram-bar {
+    width: 100%;
+    border-radius: 8px 8px 4px 4px;
+    position: relative;
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    animation: barGrow 0.5s ease-out forwards;
+    transform-origin: bottom;
+}
+
+@keyframes barGrow {
+    from { height: 0; transform: scaleY(0); }
+    to { height: var(--target-height); transform: scaleY(1); }
+}
+
+.histogram-bar:hover {
+    transform: translateY(-3px);
+    filter: brightness(1.1);
+    z-index: 10;
+}
+
+/* Значение на баре */
+.histogram-value {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #2c3e50;
+    background: #fff;
+    padding: 2px 8px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    white-space: nowrap;
+    z-index: 5;
+}
+
+/* Название датчика под баром */
+.histogram-label {
+    margin-top: 12px;
+    font-size: 0.7rem;
+    color: #555;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    padding: 0 4px;
+    line-height: 1.3;
+}
+
+.histogram-label:hover {
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+/* Легенда */
+.histogram-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 0.75rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #555;
+}
+
+.legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Цветовые схемы для баров */
+.bar-color-1 { background: linear-gradient(180deg, #667eea, #764ba2); }
+.bar-color-2 { background: linear-gradient(180deg, #f093fb, #f5576c); }
+.bar-color-3 { background: linear-gradient(180deg, #4facfe, #00f2fe); }
+.bar-color-4 { background: linear-gradient(180deg, #43e97b, #38f9d7); }
+.bar-color-5 { background: linear-gradient(180deg, #fa709a, #fee140); }
+.bar-color-6 { background: linear-gradient(180deg, #30cfd0, #330867); }
+
+.labelperiodcard{
+        font-size:0.85rem;
+        opacity:0.9;
+    }
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+
+    #weekDayCount,#weekNightCount,#monthDayCount,#monthNightCount{
+        font-size: 0.7rem !important;
+    }
+
+    .labelperiodcard{
+        font-size: 0.5rem !important;
+    }
+
+    .histogram-container {
+        height: 180px;
+        padding: 15px 5px 35px 5px;
+    }
+    .histogram-value {
+        font-size: 0.75rem;
+        top: -20px;
+        padding: 1px 6px;
+    }
+    .histogram-label {
+        font-size: 0.65rem;
+        margin-top: 8px;
+    }
+    .histogram-legend {
+        gap: 6px 12px;
+        font-size: 0.7rem;
+        padding: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .map-legend{
+        bottom: 2px;
+    }
+    
+    [style*="grid-template-columns:repeat(2,1fr)"] {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+
+    .stat-card,
+    [style*="background:linear-gradient(135deg,#667eea"] {
+        padding: 20px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    [id$="TotalAnomalies"] {
+        font-size: 2.8rem !important;
+    }
+    
+    [style*="text-align:right"] {
+        text-align: left !important;
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    
+    [style*="text-align:right"] div {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .histogram-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 10px;
+        scrollbar-width: thin;
+        scrollbar-color: #667eea #f1f1f1;
+    }
+    
+    .histogram-container::-webkit-scrollbar {
+        height: 6px;
+    }
+    
+    .histogram-container::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 3px;
+    }
+    
+    .histogram-bar-wrapper {
+        min-width: 60px !important;
+        max-width: none !important;
+        flex: 0 0 60px !important;
+    }
+    
+    .histogram-value {
+        font-size: 0.8rem !important;
+        top: -22px !important;
+        padding: 2px 6px !important;
+    }
+    
+    .histogram-label {
+        font-size: 0.65rem !important;
+        margin-top: 6px !important;
+        white-space: normal !important;
+        line-height: 1.2 !important;
+        max-width: 70px !important;
+    }
+    
+    .histogram-legend {
+        flex-wrap: wrap !important;
+        gap: 8px 12px !important;
+        padding: 10px !important;
+        font-size: 0.7rem !important;
+    }
+    
+    .legend-item {
+        flex: 0 0 calc(50% - 10px) !important;
+        max-width: calc(50% - 10px) !important;
+    }
+    
+    #weekHistogram,
+    #monthHistogram {
+        height: 200px !important;
+    }
+    
+    [style*="font-size:1.1rem"] {
+        font-size: 1.2rem !important;
+        margin-bottom: 15px !important;
+    }
+
+    [style*="font-size:0.8rem"],
+    [style*="font-size:0.85rem"] {
+        font-size: 0.8rem !important;
+    }
+    
+    [style*="font-size:1rem"] {
+        font-size: 1.05rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .stat-card,
+    [style*="background:linear-gradient(135deg,#667eea"] {
+        padding: 16px !important;
+    }
+    
+    [id$="TotalAnomalies"] {
+        font-size: 2.4rem !important;
+    }
+    
+    [id$="DayCount"],
+    [id$="NightCount"] {
+        font-size: 1.3rem !important;
+    }
+    
+    .histogram-bar-wrapper {
+        min-width: 50px !important;
+        flex: 0 0 50px !important;
+    }
+    
+    .histogram-value {
+        font-size: 0.7rem !important;
+        top: -20px !important;
+    }
+    
+    .histogram-label {
+        font-size: 0.6rem !important;
+        max-width: 60px !important;
+    }
+    
+    .legend-item {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+    
+    #weekHistogram,
+    #monthHistogram {
+        height: 180px !important;
+    }
+    
+    .histogram-y-axis {
+        display: none !important;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .histogram-bar {
+        min-height: 30px !important;
+    }
+    
+    .legend-item {
+        padding: 4px 0 !important;
+    }
+
+    .histogram-bar:hover {
+        transform: none !important;
+        filter: none !important;
+    }
+}
+
+/* Маркер для режима выбора */
+.prediction-marker {
+    background: #9b59b6 !important;
+    border: 3px solid white !important;
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+#predictionPanel {
+    display:none;position:fixed;top:47%;left:87%;
+    transform:translate(-50%,-50%);width:90%;max-width:400px;max-height:88vh;
+    background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    z-index:10000;overflow: auto;
+}
+
+@media (max-width: 1500px){
+    #predictionPanel{
+        display:none;position:fixed;top:35%;left:50%;
+    transform:translate(-50%,-50%);width:90%;max-width:1000px;height: 400px;max-height:90vh;
+    background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    z-index:10000;overflow: auto;
+    }
+}
+
+/* Индикатор загрузки */
+.prediction-loader {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(155, 89, 182, 0.3);
+    border-radius: 50%;
+    border-top-color: #9b59b6;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.seismic-chart-container {
+    height: 250px !important;
+    max-height: 250px !important;
+    position: relative;
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#waveformCanvas {
+    width: 100% !important;
+    height: 250px !important;
+}
+
+.anomalies-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.stat-card {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.stat-card p {
+    margin: 0;
+    font-size: 32px;
+    font-weight: bold;
+    color: #333;
+}
+
+.anomalies-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.anomalies-table th,
+.anomalies-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.anomalies-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.anomalies-table tr:hover {
+    background: #f8f9fa;
+}
+
+.anomalies-table .danger {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.anomalies-table .warning {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+/* Анимация появления индикатора */
+@keyframes slideInRight {
+    from { opacity:0; transform:translateX(20px); }
+    to { opacity:1; transform:translateX(0); }
+}
+
+/* Эффекты при наведении на кнопки */
+.v-toggle-btn:hover:not(.active) {
+    transform:scale(1.05);
+    box-shadow:0 6px 16px rgba(0,0,0,0.2) !important;
+}
+
+.v-toggle-btn:hover#toggle-noise-mode:not(.active) {
+    background:linear-gradient(135deg, #219a52, #27ae60) !important;
+    color:#fff !important;
+}
+
+.v-toggle-btn:hover#toggle-vibration-mode:not(.active) {
+    background:linear-gradient(135deg, #7d3c98, #8e44ad) !important;
+    color:#fff !important;
+}
+
+/* Активная кнопка — пульсация */
+.v-toggle-btn.active {
+    animation:pulse 2.5s infinite;
+    box-shadow:0 6px 20px rgba(0,0,0,0.3) !important;
+}
+@keyframes pulse {
+    0%, 100% { box-shadow:0 0 0 0 rgba(39,174,96,0.5); }
+    50% { box-shadow:0 0 0 12px rgba(39,174,96,0); }
+}
+
+/* Темная тема (если есть) */
+@media (prefers-color-scheme: dark) {
+    .v-toggle-btn:not(.active) {
+        background:#2c3e50 !important;
+        color:#ecf0f1 !important;
+    }
+    #mode-indicator {
+        background:rgba(44,62,80,0.95);
+        border-color:rgba(255,255,255,0.1);
+    }
+}
+
+</style>
+</head>
+<body>
+<div id="map-mode-toggle" class="vertical-toggle-container" style="position:fixed; top:210px; left:40px; z-index:1000; display:flex; flex-direction:column; align-items:center; gap:8px; font-family:'Segoe UI',Arial,sans-serif;">
+    
+    <!-- Кнопка: Датчики шума (верхняя) -->
+    <button id="toggle-noise-mode" class="v-toggle-btn active" onclick="setMapMode('noise')" style="width:52px; height:52px; border:none; background:linear-gradient(135deg, #27ae60, #2ecc71); color:#fff; border-radius:14px; cursor:pointer; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; box-shadow:0 4px 12px rgba(39,174,96,0.4); font-size:10px; font-weight:600; padding:4px 2px;">
+        <span style="font-size:18px; line-height:1;">🔊</span>
+        <span style="font-size:9px; opacity:0.95;">Шум</span>
+    </button>
+    <div id="toggle-slider" class="v-toggle-slider" style="width:48px; height:24px; position: flex; background:linear-gradient(135deg, #27ae60, #2ecc71); border-radius:12px; transition:transform 0.35s cubic-bezier(0.4,0,0.2,1), background 0.3s ease; box-shadow:0 3px 10px rgba(0,0,0,0.25);"></div>
+    
+    <!-- Кнопка: Датчик вибрации (нижняя) -->
+    <button id="toggle-vibration-mode" class="v-toggle-btn" onclick="setMapMode('vibration')" style="width:52px; height:52px; border:none; background:#ecf0f1; color:#7f8c8d; border-radius:14px; cursor:pointer; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; box-shadow:0 4px 12px rgba(0,0,0,0.1); font-size:10px; font-weight:600; padding:4px 2px;">
+        <span style="font-size:18px; line-height:1;">🌊</span>
+        <span style="font-size:9px; opacity:0.95;">Вибр.</span>
+    </button>
+</div>
+
+<!-- Индикатор текущего режима -->
+<div id="mode-indicator" class="mode-indicator" style="position:fixed; top:263px; left:110px; z-index:999; background:rgba(39,174,96,0.95); color:#fff; padding:10px 18px; border-radius:25px; font-size:0.85em; font-weight:500; display:none; animation:slideInRight 0.3s ease; box-shadow:0 6px 20px rgba(0,0,0,0.25); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.2);">
+    <span id="mode-text">Датчики шума</span>
+</div>
+
+    <!-- Кнопка "Назад" на главную страницу -->
+    <button id="BackButton" onclick="window.location.href='/static/index.html'" 
+        style="position:fixed;top:80px;left:30px;width:70px;height:70px;
+        background:linear-gradient(135deg,#0d7377,#14919b);border:none;border-radius:50%;
+        color:white;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 15px rgba(13,115,119,0.4);
+        z-index:1001;display:flex;align-items:center;justify-content:center;
+        transition:all 0.3s;" 
+        title="Вернуться на главную"
+        onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 20px rgba(13,115,119,0.6)'"
+        onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 15px rgba(13,115,119,0.4)'">
+        ←
+    </button>
+
+    <!-- Заголовок -->
+    <div class="floating-header">
+        <div class="status-dot"></div>
+        <h1>Мониторинг онлайн</h1>
+    </div>
+
+    <!-- Карта -->
+    <div id="map"></div>
+
+    <!-- Легенда -->
+
+    <div id="map-legend-info" class="map-legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: #4CAF50;"></div>
+            <span>Нормально (&lt;55 dB)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #FFC107;"></div>
+            <span>Повышенный (55-70 dB)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #F44336;"></div>
+            <span>Превышение (&gt;70 dB)</span>
+        </div>
+
+    </div>
+    <!-- Кнопка чат-бота -->
+<button id="openChatBot" style="position:fixed;bottom:380px;left:30px;width:70px;height:70px;
+    background:linear-gradient(135deg,#1abc9c,#16a085);border:none;border-radius:50%;
+    color:white;font-size:1.8rem;cursor:pointer;box-shadow:0 4px 15px rgba(26,188,156,0.4);
+    z-index:999;display:flex;align-items:center;justify-content:center;" title="Чат с ботом">
+    💬
+</button>
+
+<!-- Кнопка заявки на установку датчика -->
+<button id="openSensorRequest" style="position:fixed;bottom:470px;left:30px;width:70px;height:70px;
+    background:linear-gradient(135deg,#e67e22,#d35400);border:none;border-radius:50%;
+    color:white;font-size:1.8rem;cursor:pointer;box-shadow:0 4px 15px rgba(230,126,34,0.4);
+    z-index:999;display:flex;align-items:center;justify-content:center;" title="Заказать установку датчика">
+    📍
+</button>
+<!-- Кнопка предсказания шума -->
+<button id="openPredictionPanel" style="position:fixed;bottom:290px;left:30px;width:70px;height:70px;
+    background:linear-gradient(135deg,#9b59b6,#8e44ad);border:none;border-radius:50%;
+    color:white;font-size:1.8rem;cursor:pointer;box-shadow:0 4px 15px rgba(155,89,182,0.4);
+    z-index:999;display:flex;align-items:center;justify-content:center;" title="Предсказание шума ИИ">
+    🤖
+</button>
+
+    <!-- Кнопка открытия панели сейсмических данных -->
+<button id="openSeismicPanel" style="position:fixed;bottom:200px;left:30px;width:70px;height:70px;
+    background:linear-gradient(135deg,#6c5ce7,#a29bfe);border:none;border-radius:50%;
+    color:white;font-size:1.8rem;cursor:pointer;box-shadow:0 4px 15px rgba(108,92,231,0.4);
+    z-index:999;display:flex;align-items:center;justify-content:center;" title="Отображение данных">📊</button>
+
+<!-- Кнопка статистики аномалий -->
+<button id="openAnomalyPanel" style="position:fixed;bottom:110px;left:30px;width:70px;height:70px;
+    background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:50%;
+    color:white;font-size:1.8rem;cursor:pointer;box-shadow:0 4px 15px rgba(231,76,60,0.4);
+    z-index:999;display:flex;align-items:center;justify-content:center;" title="Статистика аномалий">🚨</button>
+
+<!-- Панель статистики аномалий -->
+<div id="anomalyPanel" style="display:none;position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%);width:90%;max-width:1000px;max-height:85vh;
+    background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    z-index:10000;overflow:hidden;">
+    
+    <!-- Заголовок -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:20px 25px;border-bottom:2px solid #f0f0f0;background:#f8f9fa;">
+        <h3 style="margin:0;color:#2c3e50;">🚨 Статистика аномалий</h3>
+        <button id="closeAnomalyPanel" style="background:none;border:none;
+            font-size:1.5rem;cursor:pointer;color:#666;width:35px;height:35px;
+            display:flex;align-items:center;justify-content:center;border-radius:50%;">×</button>
+    </div>
+    
+    <!-- Контент -->
+    <div style="padding:20px;overflow-y:auto;max-height:calc(85vh - 80px);">
+        
+        <!-- Карточки статистики -->
+        <div class="totalanom">
+            <div class="stat-card total">
+                <div style="color:#666;font-size:0.9rem;margin-bottom:10px;">Всего</div>
+                <div id="totalAnomalies" style="font-size:2.5rem;font-weight:bold;color:#d7cb00;">0</div>
+            </div>
+            <div class="stat-card warning">
+                <div style="color:#666;font-size:0.9rem;margin-bottom:10px;">Предупреждения (от 55 до 70)</div>
+                <div id="warningAnomalies" style="font-size:2.5rem;font-weight:bold;color:#ffc107;">0</div>
+            </div>
+            <div class="stat-card danger">
+                <div style="color:#666;font-size:0.9rem;margin-bottom:10px;">Превышения (свыше 70)</div>
+                <div id="dangerAnomalies" style="font-size:2.5rem;font-weight:bold;color:#dc3545;">0</div>
+            </div>
+        </div>
+        
+        <!-- Таблица последних аномалий -->
+<div class="last-anomalies-t">
+    
+    <!-- ДНЕВНЫЕ аномалии (06:00 - 23:00) -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#2196F3,#1976D2);color:white;padding:15px 20px;">
+            <h4 style="margin:0;display:flex;align-items:center;gap:8px;">
+                ☀️ Дневные превышения (06:00 - 23:00)
+                <span id="day-count" style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:10px;font-size:0.85rem;">0</span>
+            </h4>
+        </div>
+        <div style="overflow-x:auto;max-height:300px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead style="position:sticky;top:0;background:#f5f5f5;">
+                    <tr>
+                        <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Время</th>
+                        <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Датчик</th>
+                        <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Шум</th>
+                    </tr>
+                </thead>
+                <tbody id="day-anomalies-body">
+                    <tr><td colspan="3" style="padding:15px;text-align:center;color:#666;">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- НОЧНЫЕ аномалии (23:00 - 06:00) -->
+    <div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#37474F,#263238);color:white;padding:15px 20px;">
+            <h4 style="margin:0;display:flex;align-items:center;gap:8px;">
+                🌙 Ночные превышения (23:00 - 06:00)
+                <span id="night-count" style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:10px;font-size:0.85rem;">0</span>
+            </h4>
+        </div>
+        <div style="overflow-x:auto;max-height:300px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead style="position:sticky;top:0;background:#f5f5f5;">
+                    <tr>
+                        <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Время</th>
+                        <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Датчик</th>
+                        <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Шум</th>
+                    </tr>
+                </thead>
+                <tbody id="night-anomalies-body">
+                    <tr><td colspan="3" style="padding:15px;text-align:center;color:#666;">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Статистика за неделю и месяц -->
+<div style="margin-top:30px;">
+    
+    <!-- Карточки периодов -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:30px;">
+        <!-- НЕДЕЛЯ -->
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+            padding:25px;border-radius:15px;box-shadow:0 10px 30px rgba(102,126,234,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <div style="font-size:0.9rem;opacity:0.9;margin-bottom:5px;">📅 За неделю</div>
+                    <div id="weekTotalAnomalies" style="font-size:2.5rem;font-weight:bold;">0</div>
+                    <div style="font-size:0.8rem;opacity:0.8;">всего превышений</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="labelperiodcard">Днём</div>
+                    <div id="weekDayCount" style="font-size:1.5rem;font-weight:bold;margin:5px 0;">0</div>
+                    <div class="labelperiodcard">Ночью</div>
+                    <div id="weekNightCount" style="font-size:1.5rem;font-weight:bold;">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- МЕСЯЦ -->
+        <div style="background:linear-gradient(135deg,#f093fb,#f5576c);color:white;
+            padding:25px;border-radius:15px;box-shadow:0 10px 30px rgba(240,147,251,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <div style="font-size:0.9rem;opacity:0.9;margin-bottom:5px;">📅 За месяц</div>
+                    <div id="monthTotalAnomalies" style="font-size:2.5rem;font-weight:bold;">0</div>
+                    <div style="font-size:0.8rem;opacity:0.8;">всего превышений</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="labelperiodcard">Днём</div>
+                    <div id="monthDayCount" style="font-size:1.5rem;font-weight:bold;margin:5px 0;">0</div>
+                    <div class="labelperiodcard">Ночью</div>
+                    <div id="monthNightCount" style="font-size:1.5rem;font-weight:bold;">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ГИСТОГРАММЫ -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;">
+        
+        <!-- Гистограмма за неделю -->
+        <div style="background:white;padding:25px;border-radius:15px;
+            box-shadow:0 5px 20px rgba(0,0,0,0.1);">
+            <h5 style="margin:0 0 20px 0;color:#2c3e50;font-size:1rem;
+                display:flex;align-items:center;gap:8px;">
+                📈 По датчикам (неделя)
+            </h5>
+            <div id="weekHistogram" style="height:250px;display:flex;
+                align-items:flex-end;justify-content:space-around;
+                padding:10px 0;border-bottom:2px solid #e0e0e0;">
+                <!-- Бары будут добавлены через JavaScript -->
+            </div>
+            <div id="weekHistogramLegend" style="margin-top:15px;
+                display:flex;flex-wrap:wrap;gap:10px;font-size:0.8rem;">
+                <!-- Легенда -->
+            </div>
+        </div>
+        
+        <!-- Гистограмма за месяц -->
+        <div style="background:white;padding:25px;border-radius:15px;
+            box-shadow:0 5px 20px rgba(0,0,0,0.1);">
+            <h5 style="margin:0 0 20px 0;color:#2c3e50;font-size:1rem;
+                display:flex;align-items:center;gap:8px;">
+                📈 По датчикам (месяц)
+            </h5>
+            <div id="monthHistogram" style="height:250px;display:flex;
+                align-items:flex-end;justify-content:space-around;
+                padding:10px 0;border-bottom:2px solid #e0e0e0;">
+                <!-- Бары будут добавлены через JavaScript -->
+            </div>
+            <div id="monthHistogramLegend" style="margin-top:15px;
+                display:flex;flex-wrap:wrap;gap:10px;font-size:0.8rem;">
+                <!-- Легенда -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-top:30px;padding:25px;background:linear-gradient(135deg,#f8f9fa,#e9ecef);
+    border-radius:15px;border:1px solid #dee2e6;">
+    
+    <h4 style="margin:0 0 20px 0;color:#2c3e50;font-size:1rem;display:flex;align-items:center;gap:8px;">
+        📡 Статистика по датчику
+    </h4>
+    
+    <!-- Кнопка выбора датчика -->
+    <div style="position:relative;margin-bottom:20px;">
+        <button id="sensorSelectorBtn" onclick="toggleSensorDropdown()" 
+            style="width:100%;padding:15px 20px;background:white;border:2px solid #0d7377;
+            border-radius:10px;cursor:pointer;font-size:1rem;font-weight:600;
+            color:#0d7377;display:flex;align-items:center;justify-content:space-between;
+            transition:all 0.3s;">
+            <span id="selectedSensorName">🏢 Датчик шума и виброскорости - ИВМиМГ</span>
+            <span style="font-size:1.2rem;">▼</span>
+        </button>
+        
+        <!-- Выпадающий список датчиков -->
+        <div id="sensorDropdown" style="display:none;position:absolute;top:100%;left:0;
+            right:0;background:white;border:2px solid #0d7377;border-radius:10px;
+            margin-top:5px;max-height:300px;overflow-y:auto;z-index:1000;
+            box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+        </div>
+    </div>
+
+    <!-- Статистика выбранного датчика -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;">
+        <div style="background:white;padding:20px;border-radius:12px;
+            border-left:4px solid #dc3545;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size:0.85rem;color:#6c757d;margin-bottom:8px;">
+                Всего превышений
+            </div>
+            <div id="sensorTotalViolations" style="font-size:2.5rem;font-weight:bold;
+                color:#dc3545;">--</div>
+        </div>
+        
+        <div style="background:white;padding:20px;border-radius:12px;
+            border-left:4px solid #28a745;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size:0.85rem;color:#6c757d;margin-bottom:8px;">
+                Средний уровень шума
+            </div>
+            <div id="sensorAvgNoise" style="font-size:2.5rem;font-weight:bold;
+                color:#28a745;">-- dB</div>
+        </div>
+        <div style="background:white;padding:20px;border-radius:12px;
+            border-left:4px solid #0d6efd;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size:0.85rem;color:#6c757d;margin-bottom:8px;">
+                Дневные превышения (06:00-23:00)
+            </div>
+            <div id="sensorDayViolations" style="font-size:2.5rem;font-weight:bold;
+                color:#0d6efd;">--</div>
+        </div>
+        
+        <div style="background:white;padding:20px;border-radius:12px;
+            border-left:4px solid gray;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size:0.85rem;color:#6c757d;margin-bottom:8px;">
+                Ночные превышения (23:00-06:00)
+            </div>
+            <div id="sensorNightViolations" style="font-size:2.5rem;font-weight:bold;
+                color:gray;">--</div>
+        </div>
+    </div>
+    
+    <!-- Дополнительная информация -->
+    <div style="margin-top:20px;padding:15px;background:#f8f9fa;border-radius:10px;
+        font-size:0.85rem;color:#6c757d;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span>📍 Адрес:</span>
+            <span id="sensorAddress" style="font-weight:600;color:#2c3e50;text-align:right;">--</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span>📡 Тип:</span>
+            <span id="sensorType" style="font-weight:600;color:#2c3e50;text-align:right;">--</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+            <span>🕐 Последнее измерение:</span>
+            <span id="sensorLastUpdate" style="font-weight:600;color:#2c3e50;text-align:right;">--</span>
+        </div>
+    </div>
+</div>
+        
+    </div>
+</div>
+
+<!-- Панель отображения miniSEED данных -->
+<div id="seismicPanel" style="display:none;position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%);width:90%;max-width:1000px;max-height:85vh;
+    background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    z-index:10000;overflow:hidden;">
+    
+    <!-- Заголовок -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:20px 25px;border-bottom:2px solid #f0f0f0;background:#f8f9fa;">
+        <h3 style="margin:0;color:#2c3e50;">📈 Отображение данных формата miniSEED</h3>
+        <button id="closeSeismicPanel" style="background:none;border:none;
+            font-size:1.5rem;cursor:pointer;color:#666;width:35px;height:35px;
+            display:flex;align-items:center;justify-content:center;border-radius:50%;">×</button>
+
+    </div>
+    
+    <!-- Контент -->
+    <div style="padding:20px;overflow-y:auto;max-height:calc(85vh - 80px);">
+        
+        <!-- Список станций -->
+        <div id="seismicStationsList" style="margin-bottom:20px;">
+            <div style="text-align:center;padding:30px;color:#666;">
+                Загрузка списка станций...
+            </div>
+        </div>
+        
+        <!-- График волновой формы -->
+        <div id="seismicWaveform" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                margin-bottom:15px;padding:15px;background:#f8f9fa;border-radius:10px;">
+                <div>
+                    <strong id="waveformStation" style="color:#2c3e50;">Станция</strong>
+                    <span id="waveformChannel" style="color:#666;margin-left:10px;"></span>
+                </div>
+                <div id="noise-level-display"></div>
+                <div style="text-align:right;font-size:0.85rem;color:#666;">
+                    <div>📊 <span id="waveformNpts">0</span> точек</div>
+                    <div>⚡ <span id="waveformRate">0</span> Гц</div>
+                </div>
+            </div>
+            <canvas id="waveformCanvas" style="width:100%;height:250px;
+                background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;"></canvas>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+                margin-top:15px;font-size:0.85rem;">
+                <div style="text-align:center;padding:10px;background:#f0f0f0;border-radius:6px;">
+                    <div style="color:#666;">Min</div>
+                    <strong id="statMin" style="color:#e74c3c;">0</strong>
+                </div>
+                <div style="text-align:center;padding:10px;background:#f0f0f0;border-radius:6px;">
+                    <div style="color:#666;">Max</div>
+                    <strong id="statMax" style="color:#27ae60;">0</strong>
+                </div>
+                <div style="text-align:center;padding:10px;background:#f0f0f0;border-radius:6px;">
+                    <div style="color:#666;">Std</div>
+                    <strong id="statStd">0</strong>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Панель отображения miniSEED данных -->
+<div id="mseed-panel" style="display:none; position:fixed; top:50%; left:50%; 
+    transform:translate(-50%, -50%); width:80%; max-width:800px; 
+    background:white; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.3);
+    z-index:10000; max-height:80vh; overflow-y:auto;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; 
+        padding:20px; border-bottom:2px solid #f0f0f0;">
+        <h3 style="margin:0; color:#1a1a2e;">📊 Сейсмические данные (miniSEED)</h3>
+
+        <button onclick="closeMseedPanel()" style="background:none; border:none; 
+…    width:70px; height:70px; background:linear-gradient(135deg, #6c5ce7, #a29bfe);
+    border:none; border-radius:50%; color:white; font-size:2rem; cursor:pointer;
+    box-shadow:0 4px 15px rgba(108,92,231,0.4); z-index:999;">
+    📈
+        </button>
+    </div>
+</div>
+
+<div id="vibration-panel" style="background: #fff; padding: 15px; border-radius: 12px; margin-top: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+    <h3 style="margin-top:0; color:#8e44ad;">📊 Вибрация (Байкал-8)</h3>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="stat-card">
+            <div class="stat-label">Уровень</div>
+            <div id="vib-current" class="stat-value" style="color:#8e44ad;">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Превышений</div>
+            <div id="vib-total" class="stat-value" style="color:#e74c3c;">0</div>
+        </div>
+    </div>
+    <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:0.9em;">
+        <span>🌞 Днём: <b id="vib-day">0</b></span>
+        <span>🌙 Ночью: <b id="vib-night">0</b></span>
+    </div>
+</div>
+<div id="baikal-sidebar" class="sensor-sidebar" style="display:none; position:fixed; top:0; right:-420px; width:400px; height:100vh; background:#fff; box-shadow:-4px 0 25px rgba(0,0,0,0.2); z-index:1100; transition:right 0.35s cubic-bezier(0.4,0,0.2,1); padding:0; overflow:hidden; font-family:'Segoe UI',Arial,sans-serif;">
+    <div class="sidebar-header" style="background:linear-gradient(135deg,#8e44ad,#9b59b6); color:#fff; padding:18px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.15);">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:36px; height:36px; background:rgba(255,255,255,0.2); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px;">🌊</div>
+            <div>
+                <h3 style="margin:0; font-size:1.1em; font-weight:600;">Байкал-8 (Вибрация)</h3>
+                <div style="font-size:0.85em; opacity:0.9;" id="baikal-status-text">🔌 Ожидание данных...</div>
+            </div>
+        </div>
+        <button onclick="closeBaikalSidebar()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; transition:background 0.2s;">×</button>
+    </div>
+    <div class="sidebar-content" style="padding:16px; overflow-y:auto; height:calc(100vh - 72px);">
+        
+        <!-- Карточка текущего значения (стиль как в sensor tooltip) -->
+        <div class="stat-card" style="background:linear-gradient(135deg,#f8f9fa,#ecf0f1); border-radius:14px; padding:16px; margin-bottom:16px; border-left:4px solid #8e44ad; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-size:0.9em; color:#555; font-weight:500;">Текущий уровень</span>
+                <span id="baikal-current-badge" style="background:#8e44ad; color:#fff; padding:4px 12px; border-radius:20px; font-size:0.8em; font-weight:600;">--</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:8px;">
+                <span id="baikal-current-value" style="font-size:2.4em; font-weight:700; color:#2c3e50; line-height:1;">--</span>
+                <span style="color:#7f8c8d; font-size:0.95em;">ед.</span>
+            </div>
+            <div style="margin-top:8px; font-size:0.85em; color:#666;">
+                🕐 <span id="baikal-last-update">--:--:--</span>
+            </div>
+        </div>
+        <div class="stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+            <div class="stat-card" style="background:#fff; border-radius:12px; padding:14px; border:1px solid #e8eaed; text-align:center;">
+                <div style="font-size:0.85em; color:#666; margin-bottom:6px;">Всего превышений</div>
+                <div id="baikal-total-violations" style="font-size:1.8em; font-weight:700; color:#e74c3c;">0</div>
+            </div>
+            <div class="stat-card" style="background:#fff; border-radius:12px; padding:14px; border:1px solid #e8eaed; text-align:center;">
+                <div style="font-size:0.85em; color:#666; margin-bottom:6px;">Средний уровень</div>
+                <div id="baikal-avg-value" style="font-size:1.8em; font-weight:700; color:#27ae60;">--</div>
+            </div>
+        </div>
+        <div class="stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+            <div class="stat-card" style="background:#fff; border-radius:12px; padding:14px; border:1px solid #e8eaed; text-align:center;">
+                <div style="font-size:0.85em; color:#666; margin-bottom:6px;">☀️ Днём</div>
+                <div id="baikal-day-violations" style="font-size:1.5em; font-weight:600; color:#f39c12;">0</div>
+            </div>
+            <div class="stat-card" style="background:#fff; border-radius:12px; padding:14px; border:1px solid #e8eaed; text-align:center;">
+                <div style="font-size:0.85em; color:#666; margin-bottom:6px;">🌙 Ночью</div>
+                <div id="baikal-night-violations" style="font-size:1.5em; font-weight:600; color:#9b59b6;">0</div>
+            </div>
+        </div>
+
+        <div class="chart-section" style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0; font-size:1em; color:#2c3e50; font-weight:600;">📊 История (последние 10)</h4>
+                <button onclick="refreshBaikalHistory()" style="background:#3498db; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-size:0.85em; cursor:pointer; transition:background 0.2s;">🔄</button>
+            </div>
+            <div style="background:#fff; border-radius:12px; padding:12px; border:1px solid #e8eaed; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                <canvas id="baikal-history-chart" height="160"></canvas>
+            </div>
+        </div>
+
+        <div class="file-display-section" style="margin-bottom:20px;">
+            <h4 style="margin:0 0 10px 0; font-size:1em; color:#2c3e50; font-weight:600;">📁 Последний файл</h4>
+            <div class="file-card" style="background:#fff; border-radius:12px; padding:14px; border:1px solid #e8eaed; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <div style="width:40px; height:40px; background:linear-gradient(135deg,#3498db,#2980b9); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px;">📄</div>
+                    <div style="flex:1; min-width:0;">
+                        <div id="baikal-filename" style="font-weight:600; color:#2c3e50; font-size:0.95em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">--</div>
+                        <div style="font-size:0.8em; color:#7f8c8d; margin-top:2px;">
+                            <span id="baikal-filetime">--</span> • <span id="baikal-filesize">--</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background:#fafafa; border-radius:8px; padding:10px; margin:10px 0; border:1px solid #e0e0e0;">
+                    <canvas id="baikal-file-waveform" height="120" style="width:100%;"></canvas>
+                </div>
+                
+                <!-- Статистика -->
+                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; font-size:0.85em;">
+                    <div style="text-align:center; padding:8px; background:#fff; border-radius:6px;">
+                        <div style="color:#666;">Min</div>
+                        <div id="baikal-file-min" style="font-weight:600; color:#e74c3c;">--</div>
+                    </div>
+                    <div style="text-align:center; padding:8px; background:#fff; border-radius:6px;">
+                        <div style="color:#666;">Max</div>
+                        <div id="baikal-file-max" style="font-weight:600; color:#27ae60;">--</div>
+                    </div>
+                    <div style="text-align:center; padding:8px; background:#fff; border-radius:6px;">
+                        <div style="color:#666;">Std</div>
+                        <div id="baikal-file-std" style="font-weight:600; color:#3498db;">--</div>
+                    </div>
+                </div>
+                
+                <!-- Доп. метрики -->
+                <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:0.8em; color:#555; padding-top:10px; border-top:1px dashed #ddd;">
+                    <span>Точек: <b id="baikal-file-npts">--</b></span>
+                    <span>Частота: <b id="baikal-file-sr">--</b> Гц</span>
+                </div>
+            </div>
+        </div>
+
+        
+        </div>
+    </div>
+</div>
+
+<!-- Затемнение фона -->
+<div id="baikal-overlay" onclick="closeBaikalSidebar()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1050; transition:opacity 0.3s;"></div>
+
+<!-- Панель чат-бота -->
+<div id="chatBotPanel" style="display:none !important;position:fixed;bottom:100px;left:30px;width:380px;
+    max-height:600px;background:white;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.3);
+    z-index:10000;overflow:hidden;display:flex;flex-direction:column;">
+    
+    <!-- Заголовок -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:15px 20px;background:linear-gradient(135deg,#1abc9c,#16a085);color:white;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:1.5rem;">🤖</div>
+            <div>
+                <div style="font-weight:600;font-size:1rem;">Помощник ГеоМониАкадем</div>
+                <div style="font-size:0.75rem;opacity:0.9;">Онлайн</div>
+            </div>
+        </div>
+        <button id="closeChatBot" style="background:rgba(255,255,255,0.2);border:none;
+            color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;
+            font-size:1.2rem;">×</button>
+    </div>
+    
+    <!-- Сообщения -->
+    <div id="chatBotMessages" style="flex:1;padding:20px;overflow-y:auto;
+        background:#f8f9fa;max-height:400px;">
+        <!-- Сообщения будут добавляться здесь -->
+    </div>
+    
+    <!-- Ввод сообщения -->
+    <div style="padding:15px;background:white;border-top:1px solid #eee;
+        display:flex;gap:10px;">
+        <input type="text" id="chatBotInput" placeholder="Введите вопрос..." 
+            style="flex:1;padding:12px 15px;border:2px solid #eee;border-radius:25px;
+            outline:none;font-size:0.9rem;" onkeypress="if(event.key==='Enter')sendChatMessage()">
+        <button onclick="sendChatMessage()" style="width:45px;height:45px;
+            background:linear-gradient(135deg,#1abc9c,#16a085);border:none;
+            border-radius:50%;color:white;cursor:pointer;font-size:1.2rem;">➤</button>
+    </div>
+</div>
+
+<!-- Панель заявки на установку датчика -->
+<div id="sensorRequestPanel" style="display:none;position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%);width:90%;max-width:900px;max-height:85vh;
+    background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    z-index:10000;overflow:hidden;">
+    
+    <!-- Заголовок -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:20px 25px;border-bottom:2px solid #f0f0f0;background:linear-gradient(135deg,#e67e22,#d35400);
+        color:white;">
+        <h3 style="margin:0;font-size:1.2rem;">📍 Заявка на установку датчика</h3>
+        <button id="closeSensorRequest" style="background:rgba(255,255,255,0.2);border:none;
+            color:white;width:35px;height:35px;border-radius:50%;cursor:pointer;
+            font-size:1.5rem;">×</button>
+    </div>
+    
+    <!-- Контент -->
+    <div style="padding:25px;overflow-y:auto;max-height:calc(85vh - 80px);">
+        
+        <!-- Описание -->
+        <div id="requestDescription" style="background:linear-gradient(135deg,rgba(230,126,34,0.1),rgba(211,84,0,0.1));
+            padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid rgba(230,126,34,0.2);">
+            <h4 style="margin:0 0 10px 0;color:#d35400;">📋 О заявке</h4>
+            <p style="margin:0;color:#555;line-height:1.6;font-size:0.9rem;">
+                Заполните форму и выберите место на карте где вы хотите установить датчик мониторинга.
+                Наш специалист свяжется с вами для уточнения деталей и согласования установки.
+            </p>
+        </div>
+        
+        <!--  Блок выбора координат -->
+        <div id="coordinateSelectionBlock" style="background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:20px;
+            border:2px dashed #e67e22;transition:all 0.3s ease;">
+            <h4 style="margin:0 0 12px 0;color:#2c3e50;font-size:0.95rem;">🗺️ Выберите место установки</h4>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-bottom:15px;">
+                <div>
+                    <div style="font-size:0.85rem;color:#666;">Широта (Latitude)</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:#e67e22;" id="requestLat">--</div>
+                </div>
+                <div>
+                    <div style="font-size:0.85rem;color:#666;">Долгота (Longitude)</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:#e67e22;" id="requestLng">--</div>
+                </div>
+            </div>
+            <button onclick="startCoordinateSelection()" 
+                id="selectCoordinateBtn"
+                style="width:100%;padding:12px;background:linear-gradient(135deg,#e67e22,#d35400);
+                color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;
+                font-size:0.9rem;transition:all 0.3s;">
+                🎯 Выбрать точку на карте
+            </button>
+            <div id="coordinateStatus" style="margin-top:10px;font-size:0.85rem;color:#666;
+                text-align:center;"></div>
+        </div>
+        
+        <!-- Форма заявки -->
+        <div id="requestFormBlock" style="transition:all 0.3s ease;opacity:1;max-height:2000px;overflow:hidden;">
+            <form id="sensorRequestForm" onsubmit="submitSensorRequest(event)">
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-bottom:15px;">
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                            font-size:0.9rem;">Ваше имя *</label>
+                        <input type="text" name="name" required placeholder="Иван Петров"
+                            style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                            outline:none;font-size:0.9rem;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                            font-size:0.9rem;">Телефон *</label>
+                        <input type="tel" name="phone" required placeholder="+7 (999) 000-00-00"
+                            style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                            outline:none;font-size:0.9rem;">
+                    </div>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                        font-size:0.9rem;">Email *</label>
+                    <input type="email" name="email" required placeholder="example@mail.ru"
+                        style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                        outline:none;font-size:0.9rem;">
+                </div>
+                
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-bottom:15px;">
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                            font-size:0.9rem;">Тип датчика</label>
+                        <select name="sensor_type" 
+                            style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                            outline:none;font-size:0.9rem;">
+                            <option value="noise">Датчик шума</option>
+                            <option value="air">Датчик воздуха</option>
+                            <option value="vibration">Датчик вибрации</option>
+                            <option value="complex">Комплексный</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                            font-size:0.9rem;">Организация</label>
+                        <input type="text" name="company" placeholder="ООО Пример"
+                            style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                            outline:none;font-size:0.9rem;">
+                    </div>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                        font-size:0.9rem;">Адрес объекта</label>
+                    <input type="text" name="address" placeholder="Новосибирск, ул. ..."
+                        style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                        outline:none;font-size:0.9rem;">
+                    </div>
+                
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;margin-bottom:5px;font-weight:600;color:#2c3e50;
+                        font-size:0.9rem;">Комментарий</label>
+                    <textarea name="comment" rows="3" placeholder="Дополнительная информация..."
+                        style="width:100%;padding:12px;border:2px solid #eee;border-radius:8px;
+                        outline:none;font-size:0.9rem;resize:vertical;"></textarea>
+                </div>
+                
+                <button type="submit" 
+                    style="width:100%;padding:15px;background:linear-gradient(135deg,#e67e22,#d35400);
+                    color:white;border:none;border-radius:10px;cursor:pointer;font-size:1rem;
+                    font-weight:600;box-shadow:0 4px 15px rgba(230,126,34,0.4);">
+                    📤 Отправить заявку
+                </button>
+            </form>
+            
+            <!-- Статус отправки -->
+            <div id="requestStatus" style="margin-top:15px;text-align:center;font-size:0.85rem;"></div>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Панель предсказания шума ИИ -->
+<div id="predictionPanel">
+    
+    <!-- Заголовок -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+        padding:20px 25px;border-bottom:2px solid #f0f0f0;background:linear-gradient(135deg,#9b59b6,#8e44ad);
+        color:white;">
+        <h3 style="margin:0;font-size:1.2rem;">🤖 Предсказание уровня шума</h3>
+        <button id="closePredictionPanel" style="background:none;border:none;
+            font-size:1.5rem;cursor:pointer;color:white;width:35px;height:35px;
+            display:flex;align-items:center;justify-content:center;border-radius:50%;">×</button>
+    </div>
+    
+    <!-- Контент -->
+    <div style="padding:25px;overflow-y:auto;">
+        
+        <!-- Описание -->
+        <div style="background:linear-gradient(135deg,rgba(155,89,182,0.1),rgba(142,68,173,0.1));
+            padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid rgba(155,89,182,0.2);">
+            <h4 style="margin:0 0 10px 0;color:#8e44ad;">📊 О функции предсказания</h4>
+            <p style="margin:0;color:#555;line-height:1.6;font-size:0.9rem;">
+                С помощью данной функции можно предсказать <strong>средний уровень шума</strong> и 
+                <strong>среднее количество превышений за сутки</strong> с помощью нейросети, 
+                созданной в Jupyter Lab. Модель учитывает расположение объекта (вблизи дорог, 
+                торговых центров, строек, лесов и других факторов).
+            </p>
+        </div>
+        
+        <!-- Параметры модели -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;">
+            <div style="padding:15px;background:#f8f9fa;border-radius:10px;">
+                <div style="font-size:0.85rem;color:#666;margin-bottom:5px;">📚 Эпох обучения</div>
+                <div style="font-size:1.3rem;font-weight:bold;color:#8e44ad;">
+                    <input type="number" id="trainEpochs" value="100" min="10" max="1000" 
+                        style="width:80px;padding:5px;border:1px solid #ddd;border-radius:5px;">
+                </div>
+            </div>
+            <div style="padding:15px;background:#f8f9fa;border-radius:10px;">
+                <div style="font-size:0.85rem;color:#666;margin-bottom:5px;">🎯 Train/Test Split</div>
+                <div style="font-size:1.3rem;font-weight:bold;color:#3498db;">80/20</div>
+            </div>
+            <div style="padding:15px;background:#f8f9fa;border-radius:10px;">
+                <div style="font-size:0.85rem;color:#666;margin-bottom:5px;">📈 Факторов влияния</div>
+                <div style="font-size:1.3rem;font-weight:bold;color:#e74c3c;" id="factorsCount">7</div>
+            </div>
+        </div>
+        
+        <!-- Факторы влияния -->
+        <div style="margin-bottom:20px;">
+            <h4 style="margin:0 0 12px 0;color:#2c3e50;font-size:0.95rem;">🔍 Учитываемые факторы:</h4>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🛣️ Близость к дорогам</span>
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🚗 Трассы</span>
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🛒 Торговые центры</span>
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🏗️ Стройки</span>
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🏢 Жилые зоны</span>
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🌳 Леса</span>
+                <span style="padding:6px 12px;background:#e8f4fd;border-radius:15px;font-size:0.8rem;color:#2980b9;">🎓 Учебные заведения</span>
+            </div>
+        </div>
+        
+        <!-- Выбранные координаты -->
+        <div style="background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:20px;
+            border:2px dashed #bdc3c7;">
+            <h4 style="margin:0 0 12px 0;color:#2c3e50;font-size:0.95rem;">📍 Выбранные координаты</h4>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">
+                <div>
+                    <div style="font-size:0.85rem;color:#666;">Широта (Latitude)</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:#8e44ad;" id="selectedLat">--</div>
+                </div>
+                <div>
+                    <div style="font-size:0.85rem;color:#666;">Долгота (Longitude)</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:#8e44ad;" id="selectedLng">--</div>
+                </div>
+            </div>
+            <div style="margin-top:15px;font-size:0.85rem;color:#666;">
+                ℹ️ Кликните на карту для выбора точки предсказания
+            </div>
+        </div>
+        
+        <!-- Результаты предсказания -->
+        <div id="predictionResults" style="display:none;background:linear-gradient(135deg,rgba(155,89,182,0.05),rgba(142,68,173,0.05));
+            padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid rgba(155,89,182,0.3);">
+            <h4 style="margin:0 0 15px 0;color:#8e44ad;font-size:0.95rem;">📊 Результаты предсказания</h4>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;">
+                <div style="text-align:center;padding:20px;background:white;border-radius:10px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:0.85rem;color:#666;margin-bottom:8px;">Средний уровень шума</div>
+                    <div style="font-size:2.5rem;font-weight:bold;color:#e74c3c;" id="predictedNoise">-- dB</div>
+                    <div style="font-size:0.85rem;color:#666;margin-top:5px;" id="noiseLevel">--</div>
+                </div>
+                <div style="text-align:center;padding:20px;background:white;border-radius:10px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:0.85rem;color:#666;margin-bottom:8px;">Превышений за сутки</div>
+                    <div style="font-size:2.5rem;font-weight:bold;color:#f39c12;" id="predictedViolations">--</div>
+                    <div style="font-size:0.85rem;color:#666;margin-top:5px;">раз/24ч</div>
+                </div>
+            </div>
+            <div style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:8px;">
+                <div style="font-size:0.85rem;color:#666;margin-bottom:8px;">📈 Дополнительные метрики:</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:0.85rem;">
+                    <div>🌆 <strong id="zoneType">--</strong></div>
+                    <div>🕐 <strong id="peakHours">--</strong></div>
+                    <div>⚠️ <strong id="riskLevel">--</strong></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Кнопка предсказания -->
+        <div style="text-align:center;margin-top:25px;">
+            <button id="predictButton" onclick="startPredictionMode()" 
+                style="padding:15px 40px;background:linear-gradient(135deg,#9b59b6,#8e44ad);
+                color:white;border:none;border-radius:10px;cursor:pointer;font-size:1rem;
+                font-weight:600;box-shadow:0 4px 15px rgba(155,89,182,0.4);
+                transition:all 0.3s;">
+                🎯 Выбрать точку на карте
+            </button>
+            <button id="runPredictionButton" onclick="runPrediction()" 
+                style="display:none;padding:15px 40px;background:linear-gradient(135deg,#27ae60,#2ecc71);
+                color:white;border:none;border-radius:10px;cursor:pointer;font-size:1rem;
+                font-weight:600;box-shadow:0 4px 15px rgba(39,174,96,0.4);
+                transition:all 0.3s;margin-left:10px;">
+                🤖 Предсказать
+            </button>
+        </div>
+        
+        <!-- Статус -->
+        <div id="predictionStatus" style="margin-top:15px;text-align:center;font-size:0.85rem;color:#666;">
+        </div>
+        
+    </div>
+</div>
+
+
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+
+        // === Конфигурация карты ===
+        const ACADEMGORODOK_CENTER = [54.841667, 83.096667];
+        const map = L.map('map', {
+            zoomControl: false, // Скрываем стандартный зум, чтобы не мешал
+            attributionControl: false
+        }).setView(ACADEMGORODOK_CENTER, 15);
+
+        // Добавляем зум в правый нижний угол
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: ''
+        }).addTo(map);
+
+        // === Данные датчиков ===
+        const sensorsData = [
+            {
+                id: "sensor_1",
+                name: "Датчик шума - Бердское шоссе",
+                lat: 54.833700,
+                lng: 83.084100,
+                type: "noise",
+                baseNoise: 65
+            },
+            {
+                id: "sensor_2",
+                name: "Датчик шума - НГУ, Главный корпус",
+                lat: 54.842500,
+                lng: 83.090000,
+                type: "noise",
+                baseNoise: 50
+            },
+            {
+                id: "sensor_3",
+                name: "Датчик шума и виброскорости - ИВМиМГ",
+                lat: 54.850000,
+                lng: 83.105000,
+                type: "vibration",
+                baseNoise: 55
+            },
+            {
+                id: "sensor_4",
+                name: "Датчик шума - Торговый центр 'Академ'",
+                lat: 54.839200,
+                lng: 83.095600,
+                type: "noise",
+                baseNoise: 60
+            }
+        ];
+
+        let activeTooltip = null;
+        let updateInterval = null;
+        let mseedWebSocket = null;
+        const markersMap = {};
+        let noiseMarkers = [];  
+
+        function getNoiseClass(level) {
+            if (level < 55) return 'normal';
+            if (level < 70) return 'warning';
+            return 'danger';
+        }
+
+        function getNoiseColor(level) {
+            if (level < 55) return '#4CAF50';
+            if (level < 70) return '#FFC107';
+            return '#F44336';
+        }
+
+        function createMarker(sensor) {
+            const currentNoise = null; 
+            const noiseClass = 'warning';
+            
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="sensor-marker-dB ${noiseClass}">-- dB</div>`,
+                iconSize: [80, 30],
+                iconAnchor: [40, 15]
+            });
+
+            const marker = L.marker([sensor.lat, sensor.lng], { icon: icon }).addTo(map);
+            
+            // Сохраняем данные в маркере
+            marker.currentData = {
+                ...sensor,
+                noise: null,
+                temp: null,
+                humidity: null,
+                lastUpdate: null
+            };
+
+            marker.on('click', () => handleMarkerClick(marker));
+            
+            markersMap[sensor.id] = marker;
+
+            if (typeof noiseMarkers !== 'undefined' && Array.isArray(noiseMarkers)) {
+                noiseMarkers.push(marker);
+            }
+
+            return marker;
+        }
+
+        function showTooltip(marker) {
+    closeTooltip();
+
+    const data = marker.currentData;
+    const point = map.latLngToContainerPoint(marker.getLatLng());
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'sensor-tooltip';
+    tooltip.style.left = (point.x - 160) + 'px';
+    tooltip.style.top = (point.y - 320) + 'px'; 
+    const noiseValue = data.noise !== null ? data.noise.toFixed(1) : '--';
+    const noiseColor = data.noise !== null ? getNoiseColor(data.noise) : '#FFC107';
+    const tempValue = data.temp !== null ? data.temp.toFixed(1) + '°C' : '--';
+    const humidityValue = data.humidity !== null ? data.humidity.toFixed(0) + '%' : '--';
+
+    tooltip.innerHTML = `
+        <div class="tooltip-header">
+            <div class="tooltip-title">${data.name}</div>
+            <button class="tooltip-close" onclick="closeTooltip()">×</button>
+        </div>
+        
+        <div class="tooltip-main-value">
+            <div class="tooltip-value-big" style="color: ${noiseColor}">
+                ${noiseValue} <span style="font-size:1rem">dB</span>
+            </div>
+            <div class="tooltip-label-small">${data.noise !== null ? 'Текущий уровень шума' : 'Ожидание данных...'}</div>
+        </div>
+
+        <div class="tooltip-grid">
+            <div class="tooltip-data-item">
+                <div class="tooltip-data-value">${tempValue}</div>
+                <div class="tooltip-data-label">Температура</div>
+            </div>
+            <div class="tooltip-data-item">
+                <div class="tooltip-data-value">${humidityValue}</div>
+                <div class="tooltip-data-label">Влажность</div>
+            </div>
+            <div class="tooltip-data-item">
+                <div class="tooltip-data-value">752 мм</div>
+                <div class="tooltip-data-label">Давление</div>
+            </div>
+            <div class="tooltip-data-item">
+                <div class="tooltip-data-value">${data.type === 'vibration' ? '1.2 м/с²' : '2.1 м/с'}</div>
+                <div class="tooltip-data-label">${data.type === 'vibration' ? 'Вибрация' : 'Ветер'}</div>
+            </div>
+        </div>
+
+        <div class="tooltip-footer">
+            Обновлено: <span id="tooltip-time">${data.lastUpdate ? data.lastUpdate.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '--:--'}</span>
+        </div>
+    `;
+
+    document.body.appendChild(tooltip);
+    activeTooltip = tooltip;
+
+    // Обновление времени
+    if (updateInterval) clearInterval(updateInterval);
+    updateInterval = setInterval(() => {
+        const timeEl = document.getElementById('tooltip-time');
+        if (timeEl && data.lastUpdate) {
+            timeEl.textContent = data.lastUpdate.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+        }
+    }, 2000);
+}
+
+        function simulateLiveData(marker) {
+            const change = (Math.random() - 0.5) * 1.5;
+            marker.currentData.noise = Math.max(30, Math.min(90, marker.currentData.noise + change));
+            
+            if (activeTooltip) {
+                const valEl = activeTooltip.querySelector('.tooltip-value-big');
+                const color = getNoiseColor(marker.currentData.noise);
+                valEl.innerHTML = `${marker.currentData.noise.toFixed(1)} <span style="font-size:1rem">dB</span>`;
+                valEl.style.color = color;
+                
+                // Обновляем маркер на карте
+                const noiseClass = getNoiseClass(marker.currentData.noise);
+                marker.setIcon(L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div class="sensor-marker-dB ${noiseClass}">${marker.currentData.noise.toFixed(1)} dB</div>`,
+                    iconSize: [80, 30],
+                    iconAnchor: [40, 15]
+                }));
+            }
+        }
+
+        function closeTooltip() {
+            if (activeTooltip) {
+                activeTooltip.remove();
+                activeTooltip = null;
+            }
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        // === Инициализация ===
+        const markers = [];
+        sensorsData.forEach(sensor => {
+            markers.push(createMarker(sensor));
+        });
+
+        connectMSeedWebSocket();
+
+        // Автообновление всех датчиков каждые 5 секунд
+        setInterval(() => {
+            markers.forEach(marker => {
+                const change = (Math.random() - 0.5) * 2;
+                marker.currentData.noise = Math.max(30, Math.min(90, marker.currentData.noise + change));
+                
+                const noiseClass = getNoiseClass(marker.currentData.noise);
+                marker.setIcon(L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div class="sensor-marker-dB ${noiseClass}">${marker.currentData.noise.toFixed(1)} dB</div>`,
+                    iconSize: [80, 30],
+                    iconAnchor: [40, 15]
+                }));
+
+                // Если тултип открыт для этого маркера, обновляем его
+                if (activeTooltip && marker.currentData.name === activeTooltip.querySelector('.tooltip-title').textContent) {
+                     const valEl = activeTooltip.querySelector('.tooltip-value-big');
+                     valEl.innerHTML = `${marker.currentData.noise.toFixed(1)} <span style="font-size:1rem">dB</span>`;
+                     valEl.style.color = getNoiseColor(marker.currentData.noise);
+                }
+            });
+        }, 5000);
+
+
+        let seismicWebSocket = null;
+        let currentStationData = null;
+
+async function openSeismicPanel() {
+    document.getElementById('seismic-panel').style.display = 'block';
+    await loadSeismicStations();
+    connectSeismicWebSocket();
+}
+
+function closeSeismicPanel() {
+    document.getElementById('seismic-panel').style.display = 'none';
+    if (seismicWebSocket) {
+        seismicWebSocket.close();
+    }
+}
+
+async function loadSeismicStations() {
+    try {
+        const response = await fetch('/api/seismic/stations');
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('seismic-stations-list');
+        if (data.stations.length === 0) {
+            listDiv.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">Нет данных. Ожидание файлов miniSEED...</div>';
+            return;
+        }
+        
+        listDiv.innerHTML = `
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                ${data.stations.map(station => `
+                    <button onclick="loadStationData('${station}')" 
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #0d7377, #14919b); 
+                                   color: white; border: none; border-radius: 8px; cursor: pointer; 
+                                   font-weight: 600;">
+                        ${station}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Ошибка загрузки станций:', error);
+    }
+}
+
+async function loadStationData(stationId) {
+    try {
+        const response = await fetch(`/api/seismic/full-data/${stationId}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Данные не найдены');
+            return;
+        }
+        
+        currentStationData = data;
+        displayWaveforms(data);
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+    }
+}
+
+async function loadSeismicFiles() {
+    const debug = document.getElementById('seismic-debug');
+    debug.innerHTML = '⏳ Загрузка...';
+    
+    try {
+        const response = await fetch('/api/seismic/stations');
+        const data = await response.json();
+        debug.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        console.log('📊 Данные:', data);
+    } catch (error) {
+        debug.innerHTML = 'Ошибка: ' + error.message;
+        console.error('Ошибка:', error);
+    }
+}
+
+function displayWaveforms(data) {
+    const container = document.getElementById('seismic-waveforms');
+    
+    let html = `
+        <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <strong>Станция:</strong> ${data.station_id}<br>
+            <strong>Время получения:</strong> ${new Date(data.timestamp).toLocaleString('ru-RU')}
+        </div>
+    `;
+    
+    data.traces.forEach((trace, index) => {
+        html += `
+            <div style="margin-bottom: 30px; padding: 20px; background: white; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                    <div>
+                        <strong>Канал:</strong> ${trace.channel}<br>
+                        <strong>Частота дискретизации:</strong> ${trace.sampling_rate} Hz<br>
+                        <strong>Точек:</strong> ${trace.npts}
+                    </div>
+                    <div>
+                        <strong>Min:</strong> ${trace.min_value.toFixed(2)}<br>
+                        <strong>Max:</strong> ${trace.max_value.toFixed(2)}<br>
+                        <strong>Mean:</strong> ${trace.mean_value.toFixed(2)}
+                    </div>
+                </div>
+                <canvas id="waveform-canvas-${index}" style="width: 100%; height: 200px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px;"></canvas>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Отрисовка графиков
+    setTimeout(() => {
+        data.traces.forEach((trace, index) => {
+            drawWaveform(trace.data, `waveform-canvas-${index}`, trace.channel);
+        });
+    }, 100);
+}
+
+function drawWaveform(data, canvasId, channelName) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Устанавливаем фиксированный размер
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 250;
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+    
+    // Очистка
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, width, height);
+    
+    const maxAbs = Math.max(
+        Math.abs(Math.min(...data)),
+        Math.abs(Math.max(...data))
+    );
+    const scale = maxAbs > 0 ? (height / 2 - 20) / maxAbs : 1;
+    
+    // Рисуем сетку
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    
+    // Горизонтальные линии
+    for (let i = 0; i <= 10; i++) {
+        const y = (height / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    }
+
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
+    
+    // Подписи оси Y
+    ctx.fillStyle = '#666';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 10; i++) {
+        const y = (height / 10) * i;
+        const value = ((5 - i) * (maxAbs / 5)).toFixed(2);
+        ctx.fillText(value, width - 5, y + 12);
+    }
+    ctx.textAlign = 'left';
+    ctx.strokeStyle = getChannelColor(channelName);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    
+    const step = Math.max(1, Math.floor(data.length / width));
+    
+    for (let x = 0; x < width; x++) {
+        const dataIndex = Math.min(x * step, data.length - 1);
+        const value = data[dataIndex];
+        const y = centerY - (value * scale);
+        
+        if (x === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+    
+    ctx.stroke();
+    
+    ctx.fillStyle = getChannelColor(channelName) + '30'; // 30 = прозрачность
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    
+    for (let x = 0; x < width; x++) {
+        const dataIndex = Math.min(x * step, data.length - 1);
+        const value = data[dataIndex];
+        const y = centerY - (value * scale);
+        ctx.lineTo(x, y);
+    }
+    
+    ctx.lineTo(width, centerY);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Подпись
+    ctx.fillStyle = '#333';
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillText(`Канал ${channelName}`, 40, 20);
+}
+
+function getChannelColor(channel) {
+    const colors = {
+        'CH0': '#4CAF50',
+        'CH1': '#2196F3',
+        'CH2': '#F44336',
+        'CH3': '#9C27B0',
+        'CH4': '#FF9800',
+        'CH5': '#00BCD4'
+    };
+    return colors[channel] || '#0d7377';
+}
+
+function connectSeismicWebSocket() {
+    if (seismicWebSocket && seismicWebSocket.readyState === WebSocket.OPEN) {
+        return;
+    }
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    seismicWebSocket = new WebSocket(`${protocol}//${window.location.host}/ws/seismic`);
+    
+    seismicWebSocket.onopen = () => {
+        console.log('✅ WebSocket сейсмических данных подключен');
+    };
+    
+    seismicWebSocket.onmessage = (event) => {
+        const data = event.data;
+        if (data.type === 'new_seismic_data') {
+            // Обновляем список станций
+            loadSeismicStations();
+        }
+    };
+    
+    seismicWebSocket.onerror = (error) => {
+        console.error('WebSocket ошибка:', error);
+    };
+    
+    seismicWebSocket.onclose = () => {
+        console.log('WebSocket закрыт. Переподключение...');
+        setTimeout(connectSeismicWebSocket, 3000);
+    };
+}
+
+// Закрытие по клику вне панели
+window.onclick = function(event) {
+    const panel = document.getElementById('seismic-panel');
+    if (event.target === panel) {
+        closeSeismicPanel();
+    }
+}
+
+// === Глобальные переменные ===
+let seismicPanelOpen = false;
+let waveformChart = null;
+let currentStation = null;
+let seismicWS = null;
+
+// === Открытие/закрытие панели ===
+document.getElementById('openSeismicPanel').onclick = async () => {
+    document.getElementById('seismicPanel').style.display = 'block';
+    seismicPanelOpen = true;
+    await loadSeismicStations();
+    connectSeismicWS();
+};
+
+document.getElementById('closeSeismicPanel').onclick = () => {
+    document.getElementById('seismicPanel').style.display = 'none';
+    seismicPanelOpen = false;
+    if (seismicWS) seismicWS.close();
+};
+
+// === Загрузка списка станций ===
+async function loadSeismicStations() {
+    try {
+        const res = await fetch('/api/seismic/stations');
+        const data = await res.json();
+        
+        const list = document.getElementById('seismicStationsList');
+        if (!data.stations || data.stations.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#666;">📁 Нет miniSEED файлов в папке</div>';
+            return;
+        }
+        
+        list.innerHTML = `
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+                ${data.stations.map(s => `
+                    <button onclick="loadStationWaveform('${s.station_id}')" 
+                        style="padding:10px 20px;background:linear-gradient(135deg,#0d7377,#14919b);
+                        color:white;border:none;border-radius:8px;cursor:pointer;font-weight:500;">
+                        ${s.station_id}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    } catch(e) {
+        console.error('Ошибка загрузки станций:', e);
+        document.getElementById('seismicStationsList').innerHTML = 
+            '<div style="text-align:center;padding:20px;color:#e74c3c;">❌ Ошибка загрузки</div>';
+    }
+}
+
+// === Загрузка и отображение волновой формы ===
+async function loadStationWaveform(stationId) {
+    try {
+        const res = await fetch(`/api/seismic/plot-data/${stationId}`);
+        if (!res.ok) throw new Error('No data');
+        const data = await res.json();
+        
+        // Показать блок графика
+        document.getElementById('seismicWaveform').style.display = 'block';
+        document.getElementById('waveformStation').textContent = stationId;
+        document.getElementById('waveformChannel').textContent = `Канал: ${data.channel}`;
+        document.getElementById('waveformNpts').textContent = data.data.length;
+        document.getElementById('waveformRate').textContent = data.sampling_rate;
+        
+        // Статистика
+        // В функции loadStationWaveform обновите отображение:
+        document.getElementById('statMin').textContent = data.stats.min.toFixed(3);
+        document.getElementById('statMax').textContent = data.stats.max.toFixed(3);
+        document.getElementById('statStd').textContent = data.stats.std.toFixed(3);
+        
+        // Построить график
+        drawWaveform(data.data, data.sampling_rate);
+        
+        currentStation = stationId;
+    } catch(e) {
+        console.error('Ошибка загрузки данных:', e);
+        alert('Не удалось загрузить данные станции');
+    }
+}
+
+// Функция для вычисления уровня шума в dB по среднему значению амплитуд
+function calculateNoiseLevelFromAmplitude(amplitudes) {
+    if (!amplitudes || amplitudes.length === 0) return 0;
+    
+    // Вычисляем среднее абсолютное значение (RMS - Root Mean Square)
+    const sumSquares = amplitudes.reduce((sum, val) => sum + (val * val), 0);
+    const rms = Math.sqrt(sumSquares / amplitudes.length);
+    
+    // Преобразуем в dB
+    // Формула: dB = 20 * log10(amplitude / reference)
+    // reference = 1 для относительных измерений
+    const referenceAmplitude = 1;
+    const dB = 20 * Math.log10(rms / referenceAmplitude);
+    
+    // Нормализуем к реалистичному диапазону шума (30-90 dB)
+    // Добавляем смещение для получения реалистичных значений
+    if (dB >= 30 && dB <=90) return dB;
+    const normalizedDB = Math.max(30, Math.min(90, dB + 60));
+    
+    if (dB < 30 || dB >90) return normalizedDB;
+}
+
+// Функция для вычисления среднего значения
+function calculateMeanAmplitude(amplitudes) {
+    if (!amplitudes || amplitudes.length === 0) return 0;
+    const sum = amplitudes.reduce((a, b) => a + Math.abs(b), 0);
+    return sum / amplitudes.length;
+}
+
+function drawWaveform(data, samplingRate) {
+    const ctx = document.getElementById('waveformCanvas');
+    if (!ctx) return;
+    
+    // Уничтожить старый график
+    if (waveformChart) waveformChart.destroy();
+    
+    // Генерация временной оси
+    const labels = data.map((_, i) => (i / samplingRate).toFixed(2));
+
+    const noiseLevelDB = calculateNoiseLevelFromAmplitude(data);
+    const meanAmplitude = calculateMeanAmplitude(data);
+    
+    // Создаем инвертированные данные (зеркальное отражение)
+    const invertedData = data.map(v => -v);
+    
+    // Находим максимальное абсолютное значение для масштабирования
+    const maxAbs = Math.max(
+        Math.abs(Math.min(...data)),
+        Math.abs(Math.max(...data))
+    );
+
+    const noiseDisplay = document.getElementById('noise-level-display');
+    if (noiseDisplay) {
+        noiseDisplay.innerHTML = `
+            <div style="text-align: center; margin: 15px 0;">
+                <div style="font-size: 1rem; font-weight: 700; color: ${getNoiseColor(noiseLevelDB)};">
+                    ${noiseLevelDB.toFixed(1)} dB
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-light); margin-top: 5px;">
+                    Уровень шума
+                </div>
+                <div style="font-size: 0.8rem; color: #999; margin-top: 5px;">
+                    Средняя амплитуда: ${meanAmplitude.toFixed(4)}
+                </div>
+            </div>
+        `;
+    }
+    
+    waveformChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Амплитуда',
+                    data: data,
+                    borderColor: 'rgba(34, 139, 34, 0.9)',
+                    backgroundColor: 'rgba(34, 139, 34, 0.9)',
+                    borderWidth: 1.5,
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 3
+                },
+                {
+                    label: 'Инверсия',
+                    data: invertedData,
+                    borderColor: 'rgba(34, 139, 34, 0.9)',
+                    backgroundColor: 'rgba(34, 139, 34, 0.9)',
+                    borderWidth: 1.5,
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#1a1a2e',
+                    bodyColor: '#1a1a2e',
+                    borderColor: '#ddd',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: ctx => `t=${ctx.label}s, A=${ctx.parsed.y.toFixed(3)}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Время (с)' },
+                    ticks: { maxTicksLimit: 10, font: {size: 10} },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                y: {
+                    title: { display: false },
+                    ticks: { 
+                        font: {size: 10},
+                        callback: function(value) {
+                            return value.toFixed(2);
+                        }
+                    },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    min: -maxAbs * 1.1,
+                    max: maxAbs * 1.1,
+                    afterFit: function(scaleInstance) {
+                        scaleInstance.ctx.save();
+                        scaleInstance.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                        scaleInstance.ctx.lineWidth = 2;
+                        const zeroY = scaleInstance.getPixelForValue(0);
+                        scaleInstance.ctx.beginPath();
+                        scaleInstance.ctx.moveTo(scaleInstance.left, zeroY);
+                        scaleInstance.ctx.lineTo(scaleInstance.right, zeroY);
+                        scaleInstance.ctx.stroke();
+                        scaleInstance.ctx.restore();
+                    }
+                }
+            },
+            interaction: { mode: 'nearest', axis: 'x' },
+            elements: {
+                line: {
+                    tension: 0,
+                    cubicInterpolationMode: 'monotone',
+                    capStyle: 'round',
+                    joinStyle: 'round'
+                }
+            }
+        }
+    });
+}
+
+function connectSeismicWS() {
+    if (seismicWS?.readyState === WebSocket.OPEN) return;
+    
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    seismicWS = new WebSocket(`${protocol}//${location.host}/ws/seismic`);
+    
+    seismicWS.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'files_updated' && seismicPanelOpen) {
+            loadSeismicStations();
+            if (currentStation) loadStationWaveform(currentStation);
+        }
+    };
+    
+    seismicWS.onclose = () => {
+        if (seismicPanelOpen) setTimeout(connectSeismicWS, 3000);
+    };
+}
+
+// Закрытие по клику вне панели
+window.onclick = (e) => {
+    const panel = document.getElementById('seismicPanel');
+    if (e.target === panel) {
+        document.getElementById('closeSeismicPanel').click();
+    }
+};
+
+async function loadRecentAnomalies() {
+    try {
+        const response = await fetch('/api/anomalies/recent?limit=10');
+        const data = await response.json();
+        
+        // === ДНЕВНЫЕ аномалии ===
+        const dayBody = document.getElementById('day-anomalies-body');
+        dayBody.innerHTML = '';
+        
+        if (data.day && data.day.count > 0) {
+            document.getElementById('day-count').textContent = data.day.count;
+            data.day.data.forEach(anomaly => {
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #eee';
+                row.innerHTML = `
+                    <td style="padding:10px;color:#555;">
+                        ${new Date(anomaly.measured_at).toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'})}
+                    </td>
+                    <td style="padding:10px;font-weight:500;">${anomaly.sensor_name}</td>
+                    <td style="padding:10px;color:#d32f2f;font-weight:bold;">${anomaly.noise_level?.toFixed(1)} dB</td>
+                `;
+                dayBody.appendChild(row);
+            });
+        } else {
+            document.getElementById('day-count').textContent = '0';
+            dayBody.innerHTML = '<tr><td colspan="3" style="padding:15px;text-align:center;color:#999;">Нет опасных превышений</td></tr>';
+        }
+        
+        // === НОЧНЫЕ аномалии ===
+        const nightBody = document.getElementById('night-anomalies-body');
+        nightBody.innerHTML = '';
+        
+        if (data.night && data.night.count > 0) {
+            document.getElementById('night-count').textContent = data.night.count;
+            data.night.data.forEach(anomaly => {
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #eee';
+                row.innerHTML = `
+                    <td style="padding:10px;color:#555;">
+                        ${new Date(anomaly.measured_at).toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'})}
+                    </td>
+                    <td style="padding:10px;font-weight:500;">${anomaly.sensor_name}</td>
+                    <td style="padding:10px;color:#d32f2f;font-weight:bold;">${anomaly.noise_level?.toFixed(1)} dB</td>
+                `;
+                nightBody.appendChild(row);
+            });
+        } else {
+            document.getElementById('night-count').textContent = '0';
+            nightBody.innerHTML = '<tr><td colspan="3" style="padding:15px;text-align:center;color:#999;">Нет опасных превышений</td></tr>';
+        }
+        
+    } catch (e) {
+        console.error('Ошибка загрузки аномалий:', e);
+        document.getElementById('day-anomalies-body').innerHTML = 
+            '<tr><td colspan="3" style="padding:15px;text-align:center;color:#dc3545;">Ошибка</td></tr>';
+        document.getElementById('night-anomalies-body').innerHTML = 
+            '<tr><td colspan="3" style="padding:15px;text-align:center;color:#dc3545;">Ошибка</td></tr>';
+    }
+}
+
+async function loadAnomalyStats() {
+    try {
+        const response = await fetch('/api/anomalies/stats');
+        const data = await response.json();
+        
+        document.getElementById('total-anomalies').textContent = data.total_anomalies || 0;
+        document.getElementById('warning-anomalies').textContent = 
+            (data.by_type?.warning_high_noise || 0) + (data.by_type?.low_noise || 0);
+        document.getElementById('danger-anomalies').textContent = 
+            data.by_type?.danger_high_noise || 0;
+    } catch (e) {
+        console.error('Ошибка загрузки статистики:', e);
+    }
+}
+
+// Автообновление каждые 10 секунд
+setInterval(loadAnomalyStats, 3000);
+setInterval(loadRecentAnomalies, 3000);
+
+// === Функции для панели аномалий ===
+document.getElementById('openAnomalyPanel')?.addEventListener('click', () => {
+    document.getElementById('anomalyPanel').style.display = 'block';
+    loadAnomalyData();
+    loadPeriodStats();
+});
+
+document.getElementById('closeAnomalyPanel')?.addEventListener('click', () => {
+    document.getElementById('anomalyPanel').style.display = 'none';
+});
+
+// Закрытие по клику вне панели
+window.addEventListener('click', (e) => {
+    const panel = document.getElementById('anomalyPanel');
+    if (e.target === panel) {
+        panel.style.display = 'none';
+    }
+});
+
+
+
+async function loadAnomalyData() {
+    try {
+        // Загрузка статистики
+        const statsResponse = await fetch('/api/anomalies/stats');
+        const stats = await statsResponse.json();
+        
+        document.getElementById('totalAnomalies').textContent = (stats.warning_count || 0) + (stats.danger_count || 0);
+        document.getElementById('warningAnomalies').textContent = stats.warning_count || 0;
+        document.getElementById('dangerAnomalies').textContent = stats.danger_count || 0;
+        
+        // Загрузка последних аномалий
+        const recentResponse = await fetch('/api/anomalies/recent?limit=10');
+        const recent = await recentResponse.json();
+        
+        const tbody = document.getElementById('anomalyTableBody');
+        tbody.innerHTML = '';
+        
+        if (recent.success && recent.count > 0) {
+            recent.data.forEach(anomaly => {
+                const row = document.createElement('tr');
+                const isDanger = anomaly.anomaly_type?.includes('danger');
+                const statusClass = isDanger ? '#dc3545' : '#ffc107';
+                const statusText = isDanger ? 'Опасно' : 'Предупреждение';
+                
+                row.style.borderBottom = '1px solid #eee';
+                row.innerHTML = `
+                    <td style="padding:12px;color:#666;">
+                        ${new Date(anomaly.measured_at).toLocaleString('ru-RU')}
+                    </td>
+                    <td style="padding:12px;font-weight:500;">${anomaly.sensor_name || 'Датчик #' + anomaly.sensor_id}</td>
+                    <td style="padding:12px;">${anomaly.noise_level?.toFixed(1) || 'N/A'}</td>
+                    <td style="padding:12px;color:#666;">${anomaly.anomaly_type || 'Неизвестно'}</td>
+                    <td style="padding:12px;font-weight:bold;color:${statusClass};">${statusText}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#666;">Аномалий не обнаружено</td></tr>';
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки аномалий:', e);
+        document.getElementById('anomalyTableBody').innerHTML = 
+            '<tr><td colspan="5" style="padding:20px;text-align:center;color:#dc3545;">Ошибка загрузки данных</td></tr>';
+    }
+}
+
+// === Хранилище для tooltip ===
+let tooltipNoiseHistory = [];
+let tooltipNoiseChart = null;
+let tooltipUpdateInterval = null;
+
+// === Инициализация графика в tooltip ===
+function initTooltipNoiseChart(initialValue, sensorLocation) {
+    const ctx = document.getElementById('tooltipNoiseChart');
+    if (!ctx) return;
+    
+    // Определяем пороговое значение (днём 70, ночью 60)
+    const hour = new Date().getHours();
+    const threshold = (hour >= 7 && hour < 23) ? 70 : 60;
+    
+    if (tooltipNoiseChart) {
+        tooltipNoiseChart.destroy();
+    }
+    
+    // Генерируем метки времени для 50 значений
+    const labels = tooltipNoiseHistory.map((item, index) => {
+        const time = new Date(Date.now() - (50 - index) * 90000);
+        return time.toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    });
+    
+    const values = tooltipNoiseHistory.map(item => item.las);
+    
+    tooltipNoiseChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Уровень шума',
+                    data: values,
+                    borderColor: 'rgb(13, 115, 119)',
+                    backgroundColor: 'rgba(13, 115, 119, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'Порог',
+                    data: Array(tooltipNoiseHistory.length).fill(threshold),
+                    borderColor: 'rgba(244, 67, 54, 0.6)',
+                    borderWidth: 2,
+                    borderDash: [8, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#1a1a2e',
+                    bodyColor: '#1a1a2e',
+                    borderColor: '#ddd',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y.toFixed(1) + ' дБА';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 30,
+                    max: 90,
+                    position: 'right',
+                    ticks: {
+                        stepSize: 3,
+                        callback: function(value) {
+                            return value.toFixed(1);
+                        },
+                        font: {
+                            size: 10,
+                            family: 'Inter'
+                        },
+                        color: '#6c757d',
+                        padding: 5
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)',
+                        drawBorder: false
+                    },
+                    border: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                x: {
+                    display: true,
+                    ticks: {
+                        maxTicksLimit: 6,
+                        font: {
+                            size: 9,
+                            family: 'Inter'
+                        },
+                        color: '#6c757d',
+                        maxRotation: 0,
+                        autoSkip: true
+                    },
+                    grid: {
+                        display: false
+                    },
+                    border: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            animation: {
+                duration: 750
+            },
+            elements: {
+                line: {
+                    capStyle: 'round',
+                    joinStyle: 'round'
+                }
+            }
+        }
+    });
+}
+
+// === Обновление графика с новыми данными ===
+function updateTooltipChart(noiseLevel) {
+    if (!tooltipNoiseChart || !activeTooltip) return;
+    
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    // Добавляем новое значение
+    tooltipNoiseHistory.push({
+        time: now,
+        las: noiseLevel,
+        leq: noiseLevel - 2
+    });
+    
+    // Храним только последние 50 значений
+    if (tooltipNoiseHistory.length > 50) {
+        tooltipNoiseHistory.shift();
+    }
+    
+    // Определяем пороговое значение
+    const hour = now.getHours();
+    const threshold = (hour >= 7 && hour < 23) ? 70 : 60;
+    
+    // Обновляем данные графика
+    const labels = tooltipNoiseHistory.map(item =>
+        item.time.toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        })
+    );
+    
+    const values = tooltipNoiseHistory.map(item => item.las);
+    
+    tooltipNoiseChart.data.labels = labels;
+    tooltipNoiseChart.data.datasets[0].data = values;
+    tooltipNoiseChart.data.datasets[1].data = Array(tooltipNoiseHistory.length).fill(threshold);
+    
+    // Обновляем диапазон Y
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    tooltipNoiseChart.options.scales.y.min = Math.max(25, Math.floor(minVal - 5));
+    tooltipNoiseChart.options.scales.y.max = Math.min(90, Math.ceil(maxVal + 5));
+    
+    tooltipNoiseChart.update('none');
+    
+    // Обновляем текущие значения
+    updateTooltipValues(noiseLevel);
+}
+
+// === Обновление значений в tooltip ===
+function updateTooltipValues(noiseLevel) {
+    const lasElement = document.getElementById('tooltip-las-value');
+    const leqElement = document.getElementById('tooltip-leq-value');
+    const timeElement = document.getElementById('tooltip-update-time');
+    
+    if (lasElement) lasElement.textContent = noiseLevel.toFixed(1);
+    if (leqElement) leqElement.textContent = (noiseLevel - 2).toFixed(1);
+    if (timeElement) {
+        timeElement.textContent = new Date().toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+}
+
+// === Закрытие tooltip с очисткой интервалов ===
+function closeTooltip() {
+    if (activeTooltip) {
+        activeTooltip.remove();
+        activeTooltip = null;
+    }
+    if (window.tooltipUpdateInterval) {
+        clearInterval(window.tooltipUpdateInterval);
+        window.tooltipUpdateInterval = null;
+    }
+    if (tooltipNoiseChart) {
+        tooltipNoiseChart.destroy();
+        tooltipNoiseChart = null;
+    }
+    tooltipNoiseHistory = [];
+}
+
+// === Показ tooltip для датчика ===
+function showSensorTooltip(sensorId, location) {
+    try {
+        const marker = markersMap[sensorId];
+        if (!marker) {
+            console.error('Маркер не найден для датчика:', sensorId);
+            return;
+        }
+        
+        // Закрываем предыдущий tooltip
+        if (activeTooltip) {
+            closeTooltip();
+        }
+        
+        const reading = marker.currentData || { noise: 45 };
+        const weatherData = getFallbackWeatherData();
+        
+        // Генерируем 50 исторических значений
+        tooltipNoiseHistory = [];
+        const baseNoise = reading.noise || 45;
+        for (let i = 50; i >= 0; i--) {
+            const timeOffset = i * 90000; // 1.5 минуты
+            const noiseVariation = (Math.random() - 0.5) * 10;
+            const lasValue = Math.max(40, Math.min(85, baseNoise + noiseVariation));
+            tooltipNoiseHistory.push({
+                time: new Date(Date.now() - timeOffset),
+                las: lasValue,
+                leq: lasValue - 2
+            });
+        }
+        
+        const sensorData = {
+            noise_level: reading.noise || 45,
+            temperature: location === 'outdoor' ? weatherData.temperature : 22.0,
+            humidity: location === 'outdoor' ? weatherData.humidity : 55.0,
+            pressure: weatherData.pressure,
+            wind_speed: location === 'outdoor' ? weatherData.wind_speed : 0.1,
+            measured_at: new Date().toISOString()
+        };
+        
+        // Создаем tooltip
+        const tooltip = document.createElement('div');
+        tooltip.className = 'sensor-tooltip';
+        
+        // Определяем тип датчика и единицы измерения
+        const sensorType = marker.currentData?.type || 'noise';
+        let unitLabel = 'дБА';
+        let displayValue = sensorData.noise_level.toFixed(1);
+        
+        tooltip.innerHTML = `
+            <div class="tooltip-header">
+                <div class="tooltip-title">${marker.currentData?.name || 'Датчик'}</div>
+                <button class="tooltip-close" onclick="closeTooltip()">×</button>
+            </div>
+            <div style="margin-bottom: 15px;">
+            </div>
+            
+            <!-- Текущие показатели LAS и LEQ -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(244, 67, 54, 0.05)); border-radius: 12px; border: 2px solid rgba(244, 67, 54, 0.2);">
+                    <div style="font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px;">Текущий</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: #F44336;" id="tooltip-las-value">
+                        ${displayValue}
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-light);">${unitLabel}</div>
+                </div>
+                <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(76, 175, 80, 0.05)); border-radius: 12px; border: 2px solid rgba(76, 175, 80, 0.2);">
+                    <div style="font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px;">Средний</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: #4CAF50;" id="tooltip-leq-value">
+                        ${(parseFloat(displayValue) - 2).toFixed(1)}
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-light);">${unitLabel}</div>
+                </div>
+            </div>
+            
+            <!-- График -->
+            <div style="margin-bottom: 20px;">
+                <div class="tooltip-chart">
+                    <canvas id="tooltipNoiseChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Превышения -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 0.95rem; font-weight: 600; color: var(--dark-color); margin-bottom: 12px;">
+                    Превышений, кол-во согласно СанПиН:
+                </div>
+                <div class="stats-grid-compact">
+                    <div class="stat-card-compact">
+                        <div style="font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px;">всего</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: var(--dark-color);" id="tooltip-violations-total">--</div>
+                    </div>
+                    <div class="stat-card-compact blue">
+                        <div style="font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px;">☀️ днем</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: #42A5F5;" id="tooltip-violations-day">--</div>
+                    </div>
+                    <div class="stat-card-compact dark">
+                        <div style="font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 5px;">🌙 ночью</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: white;" id="tooltip-violations-night">--</div>
+                    </div>
+                </div>
+            </div>
+        
+            
+            <!-- Допустимые уровни -->
+            <div style="background: linear-gradient(135deg, rgba(13, 115, 119, 0.05), rgba(20, 145, 155, 0.05)); border-radius: 12px; padding: 15px; border: 1px solid rgba(13, 115, 119, 0.2);">
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--dark-color); margin-bottom: 12px; text-align: center;">
+                    Допустимые уровни, согласно СанПиН 1.2.3685-21:
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="background: white; padding: 12px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px;">☀️ с 7-00 до 23-00</div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                            <span style="font-size: 1.3rem; font-weight: 700; color: var(--dark-color);">MAX</span>
+                            <span style="font-size: 1.3rem; font-weight: 700; color: #4CAF50;">${sensorType === 'air_quality' ? '70.0' : sensorType === 'vibration' ? '70' : '70'}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-light);">${unitLabel}</span>
+                        </div>
+                    </div>
+                    <div style="background: white; padding: 12px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px;">🌙 с 23-00 до 07-00</div>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                            <span style="font-size: 1.3rem; font-weight: 700; color: var(--dark-color);">MAX</span>
+                            <span style="font-size: 1.3rem; font-weight: 700; color: #FF9800;">${sensorType === 'air_quality' ? '70.0' : sensorType === 'vibration' ? '60' : '60'}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-light);">${unitLabel}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; font-size: 0.8rem; color: var(--text-light); text-align: center;">
+                Обновлено: <span id="tooltip-update-time">${new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit', second: '2-digit'})}</span>
+            </div>
+        `;
+        
+        // Добавляем tooltip на карту
+        document.body.appendChild(tooltip);
+        activeTooltip = tooltip;
+        
+        // Инициализируем график с историческими данными
+        initTooltipNoiseChart(sensorData.noise_level, location);
+
+        loadSensorViolations(sensorId);
+        
+        if (window.tooltipUpdateInterval) {
+            clearInterval(window.tooltipUpdateInterval);
+        }
+        
+        window.tooltipUpdateInterval = setInterval(() => {
+            if (activeTooltip && marker.currentData) {
+                const newNoiseLevel = marker.currentData.noise + (Math.random() - 0.5) * 3;
+                updateTooltipChart(newNoiseLevel);
+                loadSensorViolations(currentSensor);
+            }
+        }, 1000);
+        
+        // Обновляем время каждую секунду
+        setInterval(() => {
+            const timeElement = document.getElementById('tooltip-update-time');
+            if (timeElement && activeTooltip) {
+                timeElement.textContent = new Date().toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Ошибка создания tooltip:', error);
+    }
+}
+
+// === Вспомогательные функции ===
+function getSensorTypeLabel(type) {
+    const labels = {
+        'noise': 'Датчик шума',
+        'vibration': 'Датчик вибрации',
+        'air_quality': 'Датчик качества воздуха'
+    };
+    return labels[type] || type;
+}
+
+function getFallbackWeatherData() {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const hour = now.getHours();
+    const isDay = hour >= 6 && hour <= 20;
+    const isSummer = month >= 5 && month <= 9;
+    
+    let temperature;
+    if (isSummer) {
+        temperature = isDay ? 20 + Math.random() * 10 : 15 + Math.random() * 5;
+    } else {
+        temperature = isDay ? -5 + Math.random() * 10 : -10 + Math.random() * 5;
+    }
+    
+    return {
+        temperature: Math.round(temperature),
+        humidity: 65 + Math.floor(Math.random() * 25),
+        pressure: 740 + Math.floor(Math.random() * 20),
+        wind_speed: (1 + Math.random() * 5).toFixed(1)
+    };
+}
+
+function handleMarkerClick(marker) {
+    const sensorId = marker.currentData?.id;
+    const location = marker.currentData?.location || 'outdoor';
+    
+    if (sensorId) {
+        showSensorTooltip(sensorId, location);
+    }
+}
+
+// Автообновление каждые 30 секунд при открытой панели
+setInterval(() => {
+    const panel = document.getElementById('anomalyPanel');
+    if (panel && panel.style.display === 'block') {
+        loadAnomalyData();
+    }
+}, 3000);
+
+// === Глобальные переменные для предсказания ===
+let predictionMode = false;
+let selectedCoordinates = null;
+let predictionMarker = null;
+
+// === Открытие/закрытие панели предсказания ===
+document.getElementById('openPredictionPanel')?.addEventListener('click', () => {
+    document.getElementById('predictionPanel').style.display = 'block';
+    loadModelInfo();
+});
+
+document.getElementById('closePredictionPanel')?.addEventListener('click', () => {
+    document.getElementById('predictionPanel').style.display = 'none';
+    exitPredictionMode();
+});
+
+// Закрытие по клику вне панели
+window.addEventListener('click', (e) => {
+    const panel = document.getElementById('predictionPanel');
+    if (e.target === panel) {
+        panel.style.display = 'none';
+        exitPredictionMode();
+    }
+});
+
+// === Загрузка информации о модели ===
+async function loadModelInfo() {
+    try {
+        const response = await fetch('/api/prediction/model-info');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('modelAccuracy').textContent = (data.accuracy * 100).toFixed(1) + '%';
+            document.getElementById('factorsCount').textContent = data.factors_count || 7;
+            document.getElementById('trainEpochs').value = data.default_epochs || 100;
+        }
+    } catch (e) {
+        console.log('Инфо о модели недоступно, используем значения по умолчанию');
+    }
+}
+
+// === Режим выбора точки на карте ===
+function startPredictionMode() {
+    predictionMode = true;
+    document.getElementById('predictionStatus').innerHTML = 
+        '<span style="color:#9b59b6;">🎯 Режим выбора активен. Кликните на карту для выбора точки</span>';
+    document.getElementById('predictButton').style.display = 'none';
+    document.getElementById('runPredictionButton').style.display = 'inline-block';
+    
+    // Изменяем курсор карты
+    map.getContainer().style.cursor = 'crosshair';
+}
+
+function exitPredictionMode() {
+    predictionMode = false;
+    document.getElementById('predictionStatus').textContent = '';
+    document.getElementById('predictButton').style.display = 'inline-block';
+    document.getElementById('runPredictionButton').style.display = 'none';
+    map.getContainer().style.cursor = '';
+}
+
+// === Обработчик клика по карте ===
+map.on('click', async function(e) {
+    if (!predictionMode) return;
+    
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
+    
+    // Удаляем старый маркер
+    if (predictionMarker) {
+        map.removeLayer(predictionMarker);
+    }
+    
+    // Добавляем новый маркер
+    predictionMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: 'prediction-marker',
+            html: '<div style="background:#9b59b6;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(155,89,182,0.5);"></div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+        })
+    }).addTo(map);
+    
+    // Сохраняем координаты
+    selectedCoordinates = { lat: parseFloat(lat), lng: parseFloat(lng) };
+    
+    // Обновляем панель
+    document.getElementById('selectedLat').textContent = lat;
+    document.getElementById('selectedLng').textContent = lng;
+    document.getElementById('predictionStatus').innerHTML = 
+        '<span style="color:#27ae60;">✅ Точка выбрана! Нажмите "Предсказать"</span>';
+    
+    // Центрируем карту на точке
+    map.setView([lat, lng], 16);
+});
+
+// ЧАТ-БОТ
+let chatBotOpen = false;
+let chatBotMessages = [];
+
+// Открытие/закрытие чата
+document.getElementById('openChatBot')?.addEventListener('click', () => {
+    document.getElementById('chatBotPanel').style.display = 'flex';
+    chatBotOpen = true;
+    if (chatBotMessages.length === 0) {
+        initChatBot();
+    }
+});
+
+document.getElementById('closeChatBot')?.addEventListener('click', () => {
+    document.getElementById('chatBotPanel').style.display = 'none';
+    chatBotOpen = false;
+});
+
+// Инициализация чата
+function initChatBot() {
+    addBotMessage('Здравствуйте! 👋 Я помощник системы ГеоМониАкадем. Чем могу помочь?');
+    setTimeout(() => {
+        showChatOptions();
+    }, 500);
+}
+
+// Добавление сообщения бота
+function addBotMessage(text) {
+    const messagesDiv = document.getElementById('chatBotMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = 'margin-bottom:15px;display:flex;gap:10px;align-items:flex-start;';
+    messageDiv.innerHTML = `
+        <div style="width:35px;height:35px;background:linear-gradient(135deg,#1abc9c,#16a085);
+            border-radius:50%;display:flex;align-items:center;justify-content:center;
+            color:white;font-size:1.2rem;flex-shrink:0;">🤖</div>
+        <div style="background:white;padding:12px 15px;border-radius:15px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.1);max-width:85%;line-height:1.5;">
+            ${text}
+        </div>
+    `;
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    chatBotMessages.push({role: 'bot', text: text});
+}
+
+// Добавление сообщения пользователя
+function addUserMessage(text) {
+    const messagesDiv = document.getElementById('chatBotMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = 'margin:15px 0;display:flex;gap:10px;align-items:flex-start;flex-direction:row-reverse;';
+    messageDiv.innerHTML = `
+        <div style="width:35px;height:35px;background:linear-gradient(135deg,#3498db,#2980b9);
+            border-radius:50%;display:flex;align-items:center;justify-content:center;
+            color:white;font-size:1.2rem;flex-shrink:0;">👤</div>
+        <div style="background:linear-gradient(135deg,#1abc9c,#16a085);color:white;
+            padding:12px 15px;border-radius:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1);
+            max-width:85%;line-height:1.5;">
+            ${text}
+        </div>
+    `;
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    chatBotMessages.push({role: 'user', text: text});
+}
+
+// Показ вариантов ответа
+function showChatOptions() {
+    const messagesDiv = document.getElementById('chatBotMessages');
+    const optionsDiv = document.createElement('div');
+    optionsDiv.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:15px;';
+    optionsDiv.innerHTML = `
+        <button onclick="handleChatOption('Как работает система?')" 
+            style="padding:10px 15px;background:white;border:2px solid #1abc9c;
+            border-radius:8px;cursor:pointer;text-align:left;font-size:0.85rem;
+            transition:all 0.3s;">❓ Как работает система?</button>
+        <button onclick="handleChatOption('Где находятся датчики?')" 
+            style="padding:10px 15px;background:white;border:2px solid #1abc9c;
+            border-radius:8px;cursor:pointer;text-align:left;font-size:0.85rem;
+            transition:all 0.3s;">📍 Где находятся датчики?</button>
+        <button onclick="handleChatOption('Как заказать установку?')" 
+            style="padding:10px 15px;background:white;border:2px solid #1abc9c;
+            border-radius:8px;cursor:pointer;text-align:left;font-size:0.85rem;
+            transition:all 0.3s;">📋 Как заказать установку?</button>
+        <button onclick="handleChatOption('Техническая поддержка')" 
+            style="padding:10px 15px;background:white;border:2px solid #1abc9c;
+            border-radius:8px;cursor:pointer;text-align:left;font-size:0.85rem;
+            transition:all 0.3s;">🔧 Техподдержка</button>
+    `;
+    messagesDiv.appendChild(optionsDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Обработка выбора опции
+window.handleChatOption = async function(option) {
+    addUserMessage(option);
+    
+    // Показываем индикатор набора
+    const messagesDiv = document.getElementById('chatBotMessages');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'chatTyping';
+    typingDiv.style.cssText = 'margin-bottom:15px;display:flex;gap:5px;';
+    typingDiv.innerHTML = `
+        <div style="width:8px;height:8px;background:#999;border-radius:50%;
+            animation:typing 1.4s infinite;"></div>
+        <div style="width:8px;height:8px;background:#999;border-radius:50%;
+            animation:typing 1.4s infinite 0.2s;"></div>
+        <div style="width:8px;height:8px;background:#999;border-radius:50%;
+            animation:typing 1.4s infinite 0.4s;"></div>
+    `;
+    messagesDiv.appendChild(typingDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    
+    // Имитация задержки ответа
+    setTimeout(() => {
+        const typingIndicator = document.getElementById('chatTyping');
+        if (typingIndicator) typingIndicator.remove();
+        
+        const responses = {
+            'Как работает система?': 'Наша система использует сеть датчиков для мониторинга шума, качества воздуха и вибрации в реальном времени. Данные передаются через WebSocket и отображаются на интерактивной карте. 📡',
+            'Где находятся датчики?': 'Датчики расположены в ключевых точках Академгородка: возле НГУ, в лесу, на Бердском шоссе, в торговых центрах и жилых районах.',
+            'Как заказать установку?': 'Нажмите на оранжевую кнопку 📍 слева на карте, заполните форму и выберите место установки. Наш специалист свяжется с вами в течение 1 рабочего дня! 📋',
+            'Техническая поддержка': 'Для технической поддержки позвоните: +7 (383) 123-45-67 или напишите: monitoring@academgorodok.ru. Мы работаем Пн-Пт 9:00-18:00. 📞'
+        };
+        
+        addBotMessage(responses[option] || 'Спасибо за вопрос! Наш специалист скоро свяжется с вами.');
+        setTimeout(() => showChatOptions(), 500);
+    }, 1000);
+};
+
+// Отправка сообщения
+window.sendChatMessage = async function() {
+    const input = document.getElementById('chatBotInput');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    addUserMessage(text);
+    input.value = '';
+    
+    // Показываем индикатор набора
+    const messagesDiv = document.getElementById('chatBotMessages');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'chatTyping';
+    typingDiv.style.cssText = 'margin-bottom:15px;display:flex;gap:5px;';
+    typingDiv.innerHTML = '<div style="width:8px;height:8px;background:#999;border-radius:50%;animation:typing 1.4s infinite;"></div><div style="width:8px;height:8px;background:#999;border-radius:50%;animation:typing 1.4s infinite 0.2s;"></div><div style="width:8px;height:8px;background:#999;border-radius:50%;animation:typing 1.4s infinite 0.4s;"></div>';
+    messagesDiv.appendChild(typingDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    
+    try {
+        // Отправляем запрос к API бота
+        const response = await fetch('/api/chatbot/message', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text, history: chatBotMessages})
+        });
+        const data = await response.json();
+        
+        setTimeout(() => {
+            const typingIndicator = document.getElementById('chatTyping');
+            if (typingIndicator) typingIndicator.remove();
+            addBotMessage(data.response || 'Спасибо за ваше сообщение! Наш специалист ответит вам в ближайшее время.');
+        }, 1000);
+    } catch (e) {
+        setTimeout(() => {
+            const typingIndicator = document.getElementById('chatTyping');
+            if (typingIndicator) typingIndicator.remove();
+            addBotMessage('Спасибо за ваше сообщение! Наш специалист свяжется с вами в ближайшее время. 📞');
+        }, 1000);
+    }
+}
+
+
+
+// 1. Маркер датчика вибрации на карте
+var baikalVibMarker = L.marker([54.851714, 83.101972], {
+    icon: L.divIcon({
+        className: 'vib-marker',
+        html: `<div style='background:#8e44ad;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;font-size:14px;'>V</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    })
+}).addTo(map).bindPopup(`<b>Байкал-8 (Вибрация)</b>`);
+
+baikalVibMarker.on('click', function(e) {
+    e.originalEvent?.stopPropagation?.(); // Предотвращаем всплытие
+    openBaikalSidebar();
+    this.openPopup();
+});
+
+// 2. WebSocket для получения данных в реальном времени
+var vibWs = new WebSocket(`ws://${window.location.host}/ws/vibration`);
+vibWs.onmessage = function(event) {
+    var data = JSON.parse(event.data);
+    if (data.type === 'vibration_update') {
+        var level = data.vibration_level;
+        document.getElementById('vib-current').textContent = level.toFixed(4);
+        document.getElementById('popup-vib').textContent = level.toFixed(4);
+        
+        if (data.is_anomaly) {
+            baikalVibMarker.setIcon(L.divIcon({
+                className: 'vib-marker',
+                html: `<div style='background:#e74c3c;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;font-size:14px;'>⚠️</div>`,
+                iconSize: [32, 32], iconAnchor: [16, 16]
+            }));
+            baikalVibMarker.setPopupContent(`<b style="color:#e74c3c">🚨 АНОМАЛИЯ: ${level.toFixed(4)}</b>`);
+        } else {
+            baikalVibMarker.setIcon(L.divIcon({
+                className: 'vib-marker',
+                html: `<div style='background:#8e44ad;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;font-size:14px;'>V</div>`,
+                iconSize: [32, 32], iconAnchor: [16, 16]
+            }));
+        }
+    }
+};
+
+// 3. Периодическое обновление статистики из БД
+async function updateVibrationStats() {
+    try {
+        const res = await fetch('/api/baikal/vibration/stats?hours=24');
+        const stats = await res.json();
+        
+        if (stats.success) {
+            document.getElementById('vib-total').textContent = stats.total;
+            document.getElementById('vib-day').textContent = stats.day;
+            document.getElementById('vib-night').textContent = stats.night;
+            
+            const avgEl = document.getElementById('baikal-avg-value');
+            if (avgEl && stats.avg_vibration > 0) {
+                avgEl.textContent = stats.avg_vibration.toFixed(2);
+            }
+        }
+    } catch(e) {
+        console.error("Ошибка обновления статистики вибрации:", e);
+    }
+}
+setInterval(updateVibrationStats, 15000);
+updateVibrationStats();
+
+let baikalHistoryChart = null;
+let baikalFileChart = null;
+let baikalWs = null;
+let realtimeBuffer = [];
+let pendingRealtimeUpdate = null;
+let lastProcessedFilename = null;
+const MAX_HISTORY_POINTS = 10;
+
+// Открытие панели
+function openBaikalSidebar() {
+    const sidebar = document.getElementById('baikal-sidebar');
+    const overlay = document.getElementById('baikal-overlay');
+    
+    if (!sidebar) {
+        console.error('Элемент #baikal-sidebar не найден!');
+        return;
+    }
+    
+    sidebar.style.display = 'block';
+    setTimeout(() => { sidebar.style.right = '0'; }, 10);
+    overlay.style.display = 'block';
+    
+    // Загружаем все данные
+    loadBaikalStats();
+    loadBaikalHistory();
+    loadLatestFile();
+    connectBaikalWebSocket();
+    
+    console.log('✅ Панель вибрации открыта');
+}
+
+// Закрытие панели
+function closeBaikalSidebar() {
+    const sidebar = document.getElementById('baikal-sidebar');
+    const overlay = document.getElementById('baikal-overlay');
+    
+    sidebar.style.right = '-420px';
+    setTimeout(() => { 
+        if (sidebar) sidebar.style.display = 'none'; 
+    }, 350);
+    overlay.style.display = 'none';
+    
+    if (baikalWs) {
+        baikalWs.close();
+        baikalWs = null;
+    }
+}
+
+// WebSocket подключение
+function connectBaikalWebSocket() {
+    if (baikalWs && baikalWs.readyState === WebSocket.OPEN) return;
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    baikalWs = new WebSocket(`${protocol}//${window.location.host}/ws/baikal/vibration`);
+    
+    baikalWs.onopen = () => {
+        document.getElementById('baikal-status-text').innerHTML = '🟢 Подключено';
+    };
+    
+    baikalWs.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'vibration_realtime' && msg.data.success) {
+                updateRealtimeDisplay(msg.data);
+            }
+        } catch (e) {
+            console.error('Ошибка парсинга WebSocket:', e);
+        }
+    };
+    
+    baikalWs.onclose = () => {
+        document.getElementById('baikal-status-text').innerHTML = 'Переподключение...';
+        setTimeout(connectBaikalWebSocket, 5000);
+    };
+    
+    baikalWs.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        document.getElementById('baikal-status-text').innerHTML = 'Ошибка соединения';
+    };
+}
+
+// Обновление реал-тайм отображения
+function updateRealtimeDisplay(data) {
+    const value = data.vibration_level;
+    const isAnomaly = data.is_anomaly;
+    const timestamp = new Date(data.timestamp);
+    const filename = data.filename || null; 
+    const valueEl = document.getElementById('baikal-current-value');
+    const badgeEl = document.getElementById('baikal-current-badge');
+    
+    valueEl.textContent = value.toFixed(4);
+    valueEl.style.color = isAnomaly ? '#e74c3c' : '#2c3e50';
+    
+    badgeEl.textContent = isAnomaly ? '⚠️ АНОМАЛИЯ' : '✓ Норма';
+    badgeEl.style.background = isAnomaly ? '#e74c3c' : '#27ae60';
+    
+    document.getElementById('baikal-last-update').textContent = 
+        timestamp.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    
+    // === ПРОВЕРКА: новый ли это файл для исторического графика? ===
+    if (filename && filename !== lastProcessedFilename) {
+        realtimeBuffer.push({ 
+            time: timestamp, 
+            value: value,
+            filename: filename 
+        });
+        
+        if (realtimeBuffer.length > MAX_HISTORY_POINTS) {
+            realtimeBuffer.shift();
+        }
+        
+        lastProcessedFilename = filename;  // Запоминаем последний обработанный файл
+        renderHistoryChart();  // Перерисовываем график
+    }
+
+    if (baikalFileChart && pendingRealtimeUpdate) {
+    }
+}
+
+// Загрузка статистики из БД
+async function loadBaikalStats() {
+    try {
+        const res = await fetch('/api/baikal/vibration/stats');
+        const stats = await res.json();
+        
+        if (stats.success) {
+            document.getElementById('baikal-total-violations').textContent = stats.total;
+            document.getElementById('baikal-day-violations').textContent = stats.day;
+            document.getElementById('baikal-night-violations').textContent = stats.night;
+            document.getElementById('baikal-avg-value').textContent = 
+                stats.avg_vibration ? stats.avg_vibration.toFixed(2) : '--';
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки статистики:', e);
+    }
+}
+
+// Загрузка исторических данных
+async function loadBaikalHistory() {
+    try {
+        const res = await fetch('/api/baikal/vibration/history?limit=10');
+        const result = await res.json();
+        
+        if (result.success && result.data.length > 0) {
+            // Очищаем буфер и заполняем данными из API
+            realtimeBuffer = result.data.map(d => ({
+                time: new Date(d.timestamp),
+                value: d.vibration_level,
+                filename: d.filename || null 
+            }));
+            
+            // Запоминаем имя последнего файла из истории
+            if (realtimeBuffer.length > 0) {
+                lastProcessedFilename = realtimeBuffer[realtimeBuffer.length - 1].filename;
+            }
+            
+            renderHistoryChart();
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки истории:', e);
+    }
+}
+
+// Отрисовка исторического графика
+function renderHistoryChart() {
+    const ctx = document.getElementById('baikal-history-chart').getContext('2d');
+    
+    const labels = realtimeBuffer.map(d => 
+        d.time.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})
+    );
+    const values = realtimeBuffer.map(d => d.value);
+    const isAnomaly = values.map(v => v > 1.0);
+    
+    if (baikalHistoryChart) {
+        baikalHistoryChart.destroy();
+    }
+    
+    // Градиент для заливки
+    const gradient = ctx.createLinearGradient(0, 0, 0, 160);
+    gradient.addColorStop(0, 'rgba(142, 68, 173, 0.3)');
+    gradient.addColorStop(1, 'rgba(142, 68, 173, 0.05)');
+    
+    baikalHistoryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Уровень вибрации',
+                data: values,
+                borderColor: '#8e44ad',
+                backgroundColor: gradient,
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+                pointRadius: (ctx) => isAnomaly[ctx.dataIndex] ? 6 : 4,
+                pointBackgroundColor: (ctx) => isAnomaly[ctx.dataIndex] ? '#e74c3c' : '#8e44ad',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(44,62,80,0.95)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#8e44ad',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: (ctx) => `Вибрация: ${ctx.parsed.y.toFixed(4)} ед.${ctx.raw > 1.0 ? ' ⚠️' : ''}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.06)', lineWidth: 1 },
+                    ticks: { 
+                        color: '#666', 
+                        font: { size: 10 },
+                        callback: (v) => v.toFixed(1)
+                    },
+                    border: { display: false }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        color: '#666', 
+                        font: { size: 9 },
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 6
+                    },
+                    border: { display: false }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
+
+
+
+// Загрузка информации о последнем файле
+async function loadLatestFile() {
+    try {
+        const res = await fetch('/api/baikal/vibration/latest-file');
+        const data = await res.json();
+        
+        if (data.success && data.file) {
+            // Информация о файле
+            document.getElementById('baikal-filename').textContent = data.file.filename;
+            document.getElementById('baikal-filesize').textContent = formatFileSize(data.file.size);
+            document.getElementById('baikal-filetime').textContent = formatRelativeTime(data.file.modified);
+            
+            // Статистика содержимого
+            document.getElementById('baikal-file-min').textContent = data.file.stats.min.toFixed(4);
+            document.getElementById('baikal-file-max').textContent = data.file.stats.max.toFixed(4);
+            document.getElementById('baikal-file-std').textContent = data.file.stats.std.toFixed(4);
+            
+            // Мини-график содержимого файла
+            renderFileChart(data.file.stats.distribution);
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки файла:', e);
+        document.getElementById('baikal-filename').textContent = 'Нет данных';
+    }
+}
+
+// Загрузка данных последнего файла
+async function loadLatestFile() {
+    try {
+        const res = await fetch('/api/baikal/vibration/latest-file');
+        const data = await res.json();
+        
+        if (data.success && data.file) {
+            // Метаданные файла
+            document.getElementById('baikal-filename').textContent = data.file.filename;
+            document.getElementById('baikal-filetime').textContent = formatRelativeTime(data.file.modified);
+            document.getElementById('baikal-filesize').textContent = formatFileSize(data.file.size);
+            
+            // Статистика
+            document.getElementById('baikal-file-min').textContent = data.file.stats.min.toFixed(4);
+            document.getElementById('baikal-file-max').textContent = data.file.stats.max.toFixed(4);
+            document.getElementById('baikal-file-std').textContent = data.file.stats.std.toFixed(4);
+            document.getElementById('baikal-file-npts').textContent = data.file.stats.npts;
+            document.getElementById('baikal-file-sr').textContent = data.file.stats.sampling_rate;
+            
+            // Отрисовка зеркального графика волны
+            drawBaikalWaveform(data.file.waveform, data.file.stats.sampling_rate);
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки файла:', e);
+        document.getElementById('baikal-filename').textContent = 'Нет данных';
+    }
+}
+
+// Отрисовка зеркального графика
+function drawBaikalWaveform(data, samplingRate) {
+    const canvas = document.getElementById('baikal-file-waveform');
+    if (!canvas) return;
+    
+    // Уничтожить старый график
+    if (baikalFileChart) {
+        baikalFileChart.destroy();
+    }
+    
+    // Генерация временной оси
+    const labels = data.map((_, i) => (i / samplingRate).toFixed(2));
+    
+    // Вычисление уровня шума
+    const noiseDb = calculateNoiseLevelFromAmplitude(data);
+    
+    // Инвертированные данные для зеркального отображения
+    const invertedData = data.map(v => -v);
+    
+    // Масштабирование
+    const maxAbs = Math.max(
+        Math.abs(Math.min(...data)),
+        Math.abs(Math.max(...data))
+    );
+    
+    baikalFileChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Вибрация',
+                    data: data,
+                    borderColor: 'rgba(142, 68, 173, 0.9)',
+                    backgroundColor: 'rgba(142, 68, 173, 0.15)',
+                    borderWidth: 1.5,
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 3
+                },
+                {
+                    label: 'Инверсия',
+                    data: invertedData,
+                    borderColor: 'rgba(142, 68, 173, 0.9)',
+                    backgroundColor: 'rgba(142, 68, 173, 0.15)',
+                    borderWidth: 1.5,
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#2c3e50',
+                    bodyColor: '#2c3e50',
+                    borderColor: '#ddd',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: ctx => `t=${ctx.label}s, A=${ctx.parsed.y.toFixed(4)}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Время (с)', font: {size: 10} },
+                    ticks: { maxTicksLimit: 8, font: {size: 9} },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                },
+                y: {
+                    ticks: { 
+                        font: {size: 9},
+                        callback: v => v.toFixed(2)
+                    },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    // Центрирование относительно 0
+                    min: -maxAbs * 1.15,
+                    max: maxAbs * 1.15,
+                    afterFit: function(scale) {
+                        scale.ctx.save();
+                        scale.ctx.strokeStyle = 'rgba(142, 68, 173, 0.4)';
+                        scale.ctx.lineWidth = 1.5;
+                        const zeroY = scale.getPixelForValue(0);
+                        scale.ctx.beginPath();
+                        scale.ctx.moveTo(scale.left, zeroY);
+                        scale.ctx.lineTo(scale.right, zeroY);
+                        scale.ctx.stroke();
+                        scale.ctx.restore();
+                    }
+                }
+            },
+            interaction: { mode: 'nearest', axis: 'x', intersect: false },
+            elements: {
+                line: { tension: 0, cubicInterpolationMode: 'monotone' }
+            }
+        }
+    });
+}
+
+// Вычисление уровня шума в дБ (как в seismic panel)
+function calculateNoiseLevelFromAmplitude(amplitudes) {
+    if (!amplitudes || amplitudes.length === 0) return 0;
+    const sumSquares = amplitudes.reduce((sum, val) => sum + (val * val), 0);
+    const rms = Math.sqrt(sumSquares / amplitudes.length);
+    const dB = 20 * Math.log10(rms + 1e-10);
+    // Нормализация к диапазону 30-90 дБ
+    return Math.max(30, Math.min(90, dB + 55));
+}
+
+// Цвет для уровня шума
+function getNoiseColor(db) {
+    if (db >= 70) return '#e74c3c';      // красный
+    if (db >= 55) return '#f39c12';      // оранжевый
+    return '#27ae60';                     // зелёный
+}
+
+// Вспомогательные функции
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function formatRelativeTime(isoString) {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    
+    if (diff < 60) return 'только что';
+    if (diff < 3600) return Math.floor(diff/60) + ' мин. назад';
+    if (diff < 86400) return Math.floor(diff/3600) + ' ч. назад';
+    return date.toLocaleDateString('ru-RU', {day:'numeric', month:'short'});
+}
+
+// Обновление данных
+function refreshBaikalData() {
+    document.getElementById('baikal-status-text').innerHTML = '🔄 Обновление...';
+    loadBaikalStats();
+    loadBaikalHistory();
+    loadLatestFile();
+}
+
+function refreshBaikalHistory() {
+    loadBaikalHistory();
+}
+
+// Привязка клика по маркеру на карте
+function initBaikalMarker() {
+    if (typeof baikalVibMarker !== 'undefined') {
+        baikalVibMarker.on('click', function(e) {
+            e.originalEvent?.stopPropagation?.();
+            openBaikalSidebar();
+            this.openPopup();
+        });
+    }
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initBaikalMarker, 1500);
+});
+
+// Глобальная функция для вызова извне
+window.openBaikalSidebar = openBaikalSidebar;
+window.closeBaikalSidebar = closeBaikalSidebar;
+
+// === ЛОГИКА ПЕРЕКЛЮЧАТЕЛЯ РЕЖИМОВ КАРТЫ ===
+
+let currentMapMode = 'noise'; // 'noise' или 'vibration'
+toggleVibrationMarker(false);
+
+// Инициализация переключателя после загрузки карты
+function initMapModeToggle() {
+    if (typeof noiseMarkers !== 'undefined') {
+        toggleNoiseMarkers(true);
+        toggleVibrationMarker(false);
+    }
+    showModeIndicator('Датчики шума', '#27ae60');
+}
+
+function setMapMode(mode) {
+    if (mode === currentMapMode) return;
+    
+    const slider = document.getElementById('toggle-slider');
+    const noiseBtn = document.getElementById('toggle-noise-mode');
+    const vibBtn = document.getElementById('toggle-vibration-mode');
+    const indicator = document.getElementById('mode-indicator');
+    const modeText = document.getElementById('mode-text');
+    const maplegend = document.getElementById('map-legend-info');
+    
+    if (mode === 'noise') {
+        slider.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+        maplegend.style.opacity = '1';
+        
+        // Активация кнопки шума
+        noiseBtn.classList.add('active');
+        noiseBtn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+        noiseBtn.style.color = '#fff';
+        noiseBtn.style.boxShadow = '0 6px 20px rgba(39,174,96,0.5)';
+        
+        // Деактивация кнопки вибрации
+        vibBtn.classList.remove('active');
+        vibBtn.style.background = '#ecf0f1';
+        vibBtn.style.color = '#7f8c8d';
+        vibBtn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        
+        // Показать шум, скрыть вибрацию
+        toggleNoiseMarkers(true);
+        toggleVibrationMarker(false);
+        
+        // Индикатор
+        modeText.textContent = 'Датчики шума';
+        indicator.style.background = 'rgba(39,174,96,0.95)';
+        indicator.style.borderColor = 'rgba(255,255,255,0.25)';
+        showModeIndicator();
+        
+    } else if (mode === 'vibration') {
+        slider.style.background = 'linear-gradient(135deg, #8e44ad, #9b59b6)';
+        maplegend.style.opacity = '0';
+        
+        // Активация кнопки вибрации
+        vibBtn.classList.add('active');
+        vibBtn.style.background = 'linear-gradient(135deg, #8e44ad, #9b59b6)';
+        vibBtn.style.color = '#fff';
+        vibBtn.style.boxShadow = '0 6px 20px rgba(142,68,173,0.5)';
+        
+        // Деактивация кнопки шума
+        noiseBtn.classList.remove('active');
+        noiseBtn.style.background = '#ecf0f1';
+        noiseBtn.style.color = '#7f8c8d';
+        noiseBtn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        
+        // Скрыть шум, показать вибрацию
+        toggleNoiseMarkers(false);
+        toggleVibrationMarker(true);
+        
+        // Индикатор
+        modeText.textContent = 'Датчик вибрации';
+        indicator.style.background = 'rgba(142,68,173,0.95)';
+        indicator.style.borderColor = 'rgba(255,255,255,0.25)';
+        showModeIndicator();
+
+    }
+    
+    currentMapMode = mode;
+    
+    // Закрыть панель вибрации при переключении на шум
+    if (mode === 'noise' && document.getElementById('baikal-sidebar')?.style.right === '0px') {
+        closeBaikalSidebar();
+    }
+}
+
+// Показать/скрыть маркеры шума
+function toggleNoiseMarkers(show) {
+    // Если у вас маркеры хранятся в массиве noiseMarkers
+    if (typeof noiseMarkers !== 'undefined' && Array.isArray(noiseMarkers)) {
+        noiseMarkers.forEach(marker => {
+            if (show) {
+                if (!map.hasLayer(marker)) {
+                    marker.addTo(map);
+                }
+            } else {
+                if (map.hasLayer(marker)) {
+                    map.removeLayer(marker);
+                }
+            }
+        });
+    }
+}
+
+// Показать/скрыть маркер вибрации Байкал-8
+function toggleVibrationMarker(show) {
+    if (typeof baikalVibMarker !== 'undefined') {
+        if (show) {
+            if (!map.hasLayer(baikalVibMarker)) {
+                baikalVibMarker.addTo(map);
+            }
+        } else {
+            if (map.hasLayer(baikalVibMarker)) {
+                map.removeLayer(baikalVibMarker);
+            }
+            // Закрываем панель при скрытии маркера
+            if (document.getElementById('baikal-sidebar')?.style.right === '0px') {
+                closeBaikalSidebar();
+            }
+        }
+    }
+}
+
+// Показать индикатор режима с анимацией
+function showModeIndicator() {
+    const indicator = document.getElementById('mode-indicator');
+    indicator.style.display = 'block';
+    indicator.style.opacity = '1';
+    
+    setTimeout(() => {
+        indicator.style.opacity = '0';
+        indicator.style.transition = 'opacity 0.25s ease';
+        setTimeout(() => {
+            if (indicator.style.opacity === '0') {
+                indicator.style.display = 'none';
+                indicator.style.opacity = '1';
+                indicator.style.transition = '';
+            }
+        }, 250);
+    }, 2500);
+}
+
+// Инициализация переключателя
+function initVerticalToggle() {
+    const slider = document.getElementById('toggle-slider');
+    
+    // Показать индикатор при старте
+    setTimeout(showModeIndicator, 100);
+}
+
+// Вызов при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initVerticalToggle, 100);
+});
+
+// === Глобальный доступ ===
+window.setMapMode = setMapMode;
+window.toggleNoiseMarkers = toggleNoiseMarkers;
+window.toggleVibrationMarker = toggleVibrationMarker;
+
+// ЗАЯВКА НА УСТАНОВКУ ДАТЧИКА
+
+let sensorRequestMode = false;
+let requestMarker = null;
+let selectedRequestCoords = null;
+
+// Открытие/закрытие панели
+document.getElementById('openSensorRequest')?.addEventListener('click', () => {
+    document.getElementById('sensorRequestPanel').style.display = 'block';
+    resetCoordinateSelection();
+});
+
+document.getElementById('closeSensorRequest')?.addEventListener('click', () => {
+    document.getElementById('sensorRequestPanel').style.display = 'none';
+    exitCoordinateSelection();
+});
+
+// Сброс выбора координат при открытии
+function resetCoordinateSelection() {
+    selectedRequestCoords = null;
+    document.getElementById('requestLat').textContent = '--';
+    document.getElementById('requestLng').textContent = '--';
+    document.getElementById('coordinateStatus').textContent = '';
+    document.getElementById('selectCoordinateBtn').textContent = '🎯 Выбрать точку на карте';
+    document.getElementById('selectCoordinateBtn').disabled = false;
+    
+    // Показываем форму
+    document.getElementById('requestFormBlock').classList.remove('form-block-hidden');
+    document.getElementById('requestDescription').style.display = 'block';
+    
+    // Удаляем маркер если есть
+    if (requestMarker) {
+        map.removeLayer(requestMarker);
+        requestMarker = null;
+    }
+    
+    // Снимаем активный режим
+    document.getElementById('sensorRequestPanel').classList.remove('coordinate-selection-active');
+}
+
+// Начало выбора координат - СКРЫВАЕМ ФОРМУ
+window.startCoordinateSelection = function() {
+    sensorRequestMode = true;
+    
+    // СКРЫВАЕМ всё кроме блока координат
+    document.getElementById('requestFormBlock').classList.add('form-block-hidden');
+    document.getElementById('requestDescription').style.display = 'none';
+    
+    // Обновляем кнопку
+    document.getElementById('selectCoordinateBtn').textContent = '⏳ Выберите точку на карте...';
+    document.getElementById('selectCoordinateBtn').disabled = true;
+    
+    // Статус
+    document.getElementById('coordinateStatus').innerHTML = 
+        '<span style="color:#e67e22;font-weight:600;">🎯 Кликните на карту для выбора места установки</span>';
+    
+    // Меняем курсор карты
+    map.getContainer().style.cursor = 'crosshair';
+    
+    // Добавляем активный класс панели
+    document.getElementById('sensorRequestPanel').classList.add('coordinate-selection-active');
+    
+    // Делаем панель полупрозрачной чтобы не мешала
+    document.getElementById('sensorRequestPanel').style.opacity = '0.7';
+};
+
+// Выход из режима выбора
+function exitCoordinateSelection() {
+    sensorRequestMode = false;
+    document.getElementById('coordinateStatus').textContent = '';
+    map.getContainer().style.cursor = '';
+    document.getElementById('sensorRequestPanel').style.opacity = '1';
+    document.getElementById('sensorRequestPanel').classList.remove('coordinate-selection-active');
+    
+    if (requestMarker) {
+        map.removeLayer(requestMarker);
+        requestMarker = null;
+    }
+}
+
+// Обработчик клика по карте для заявки
+map.on('click', async function(e) {
+    if (!sensorRequestMode) return;
+    
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
+    
+    // Удаляем старый маркер
+    if (requestMarker) {
+        map.removeLayer(requestMarker);
+    }
+    
+    // Добавляем новый маркер
+    requestMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: 'request-marker',
+            html: '<div style="background:#e67e22;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(230,126,34,0.5);"></div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+        })
+    }).addTo(map);
+    
+    // Сохраняем координаты
+    selectedRequestCoords = { lat: parseFloat(lat), lng: parseFloat(lng) };
+    
+    // Обновляем панель
+    document.getElementById('requestLat').textContent = lat;
+    document.getElementById('requestLng').textContent = lng;
+    document.getElementById('coordinateStatus').innerHTML = 
+        '<span style="color:#27ae60;font-weight:600;">✅ Точка выбрана!</span>';
+    document.getElementById('selectCoordinateBtn').textContent = '🔄 Выбрать другую точку';
+    document.getElementById('selectCoordinateBtn').disabled = false;
+    document.getElementById('requestFormBlock').classList.remove('form-block-hidden');
+    document.getElementById('requestDescription').style.display = 'block';
+    document.getElementById('sensorRequestPanel').style.opacity = '1';
+    
+    // Снимаем активный режим
+    document.getElementById('sensorRequestPanel').classList.remove('coordinate-selection-active');
+    map.getContainer().style.cursor = '';
+    sensorRequestMode = false;
+    
+    // Центрируем карту
+    map.setView([lat, lng], 16);
+    
+    // Прокручиваем к форме
+    setTimeout(() => {
+        document.getElementById('requestFormBlock').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }, 300);
+});
+
+// Отправка заявки
+window.submitSensorRequest = async function(event) {
+    event.preventDefault();
+    
+    if (!selectedRequestCoords) {
+        alert('⚠️ Сначала выберите место установки на карте!');
+        startCoordinateSelection();
+        return;
+    }
+    
+    const form = event.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Отправка...';
+    
+    // Собираем данные
+    const formData = new FormData(form);
+    const requestData = {
+        name: formData.get('name'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+        sensor_type: formData.get('sensor_type'),
+        company: formData.get('company') || '',
+        address: formData.get('address') || '',
+        comment: formData.get('comment') || '',
+        latitude: selectedRequestCoords.lat,
+        longitude: selectedRequestCoords.lng,
+        timestamp: new Date().toISOString()
+    };
+    
+    try {
+        const response = await fetch('/api/sensor-request/submit', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(requestData)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('requestStatus').innerHTML = 
+                '<span style="color:#27ae60;font-weight:600;">✅ Заявка успешно отправлена! Наш специалист свяжется с вами в течение 1 рабочего дня.</span>';
+            form.reset();
+            setTimeout(() => {
+                document.getElementById('sensorRequestPanel').style.display = 'none';
+                exitCoordinateSelection();
+                document.getElementById('requestStatus').textContent = '';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '📤 Отправить заявку';
+            }, 3000);
+        } else {
+            throw new Error(result.error || 'Ошибка отправки');
+        }
+    } catch (e) {
+        document.getElementById('requestStatus').innerHTML = 
+            '<span style="color:#e74c3c;font-weight:600;">❌ Ошибка: ' + e.message + '</span>';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '📤 Отправить заявку';
+    }
+}
+
+// Закрытие по клику вне панели
+window.addEventListener('click', (e) => {
+    const requestPanel = document.getElementById('sensorRequestPanel');
+    if (e.target === requestPanel) {
+        document.getElementById('closeSensorRequest').click();
+    }
+});
+
+// === Запуск предсказания ===
+async function runPrediction() {
+    if (!selectedCoordinates) {
+        alert('⚠️ Сначала выберите точку на карте!');
+        return;
+    }
+    
+    const epochs = parseInt(document.getElementById('trainEpochs').value) || 10;
+    
+    // Показываем индикатор загрузки
+    document.getElementById('predictionStatus').innerHTML = 
+        '<div class="prediction-loader"></div> <span style="color:#9b59b6;">🤖 Обучение и предсказание нейросетью...</span>';
+    document.getElementById('runPredictionButton').disabled = true;
+    
+    try {
+        const response = await fetch('/api/prediction/predict', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                latitude: selectedCoordinates.lat,
+                longitude: selectedCoordinates.lng,
+                epochs: epochs
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Показываем результаты
+            document.getElementById('predictionResults').style.display = 'block';
+            document.getElementById('predictedNoise').textContent = data.predicted_noise.toFixed(1) + ' dB';
+            document.getElementById('predictedViolations').textContent = data.predicted_violations;
+            
+            // Уровень шума
+            const noiseLevel = data.predicted_noise;
+            let noiseText = '';
+            let noiseColor = '';
+            if (noiseLevel < 55) {
+                noiseText = '✅ Норма';
+                noiseColor = '#27ae60';
+            } else if (noiseLevel < 70) {
+                noiseText = '⚠️ Повышенный';
+                noiseColor = '#f39c12';
+            } else {
+                noiseText = '❌ Опасный';
+                noiseColor = '#e74c3c';
+            }
+            document.getElementById('noiseLevel').textContent = noiseText;
+            document.getElementById('noiseLevel').style.color = noiseColor;
+            
+            // Дополнительные метрики
+            document.getElementById('zoneType').textContent = data.zone_type || 'Городская зона';
+            document.getElementById('peakHours').textContent = data.peak_hours || '08:00-10:00, 17:00-19:00';
+            document.getElementById('riskLevel').textContent = data.risk_level || 'Средний';
+            
+            // Показываем использовалась ли модель
+            const modelInfo = data.model_used ? 
+                '<span style="color:#27ae60;">✅ Нейросеть</span>' : 
+                '<span style="color:#f39c12;">⚠️ Симуляция</span>';
+            document.getElementById('predictionStatus').innerHTML = 
+                `<span style="color:#27ae60;">✅ Предсказание выполнено! Модель: ${modelInfo}</span>`;
+        } else {
+            throw new Error(data.error || 'Ошибка предсказания');
+        }
+        
+    } catch (e) {
+        console.error('Ошибка предсказания:', e);
+        document.getElementById('predictionStatus').innerHTML = 
+            '<span style="color:#e74c3c;">❌ Ошибка: ' + e.message + '</span>';
+    } finally {
+        document.getElementById('runPredictionButton').disabled = false;
+    }
+}
+
+// Загрузка при старте
+document.addEventListener('DOMContentLoaded', () => {
+    loadAnomalyStats();
+    loadRecentAnomalies();
+});
+
+// Загрузка при старте страницы
+document.addEventListener('DOMContentLoaded', () => {
+    loadAnomalyStats();
+    loadRecentAnomalies();
+});
+
+let currentSelectedSensor = 'sensor_1'; // По умолчанию ИВМиМГ
+let sensorDropdownOpen = false;
+
+// Список датчиков шума (для выпадающего списка)
+const noiseSensors = [
+    { id: 'sensor_1', name: '🏢 Датчик шума и виброскорости - ИВМиМГ', address: 'пр. Академика Лаврентьева, 6', type: 'noise' },
+    { id: 'sensor_2', name: '🎓 Датчик шума - НГУ, Главный корпус', address: 'ул. Пирогова, 1', type: 'noise' },
+    { id: 'sensor_3', name: '🛒 Датчик шума - Торговый центр \'Академ\'', address: 'ул. Ильича, 14', type: 'noise' },
+    { id: 'sensor_4', name: '🚗 Датчик шума - Бердское шоссе', address: 'Бердское шоссе, 25', type: 'noise' }
+];
+
+// Открытие/закрытие выпадающего списка
+function toggleSensorDropdown() {
+    const dropdown = document.getElementById('sensorDropdown');
+    sensorDropdownOpen = !sensorDropdownOpen;
+    dropdown.style.display = sensorDropdownOpen ? 'block' : 'none';
+    
+    if (sensorDropdownOpen && dropdown.children.length === 0) {
+        renderSensorDropdown();
+    }
+}
+
+// Отрисовка выпадающего списка
+function renderSensorDropdown() {
+    const dropdown = document.getElementById('sensorDropdown');
+    dropdown.innerHTML = noiseSensors.map(sensor => `
+        <div onclick="selectSensor('${sensor.id}')" 
+            style="padding:15px 20px;cursor:pointer;border-bottom:1px solid #eee;
+            transition:all 0.3s;display:flex;align-items:center;gap:10px;"
+            onmouseover="this.style.background='#f8f9fa'" 
+            onmouseout="this.style.background='white'">
+            <span style="font-size:0.95rem;color:#2c3e50;">${sensor.name}</span>
+        </div>
+    `).join('');
+}
+
+// Выбор датчика
+async function selectSensor(sensorId) {
+    currentSelectedSensor = sensorId;
+    const sensor = noiseSensors.find(s => s.id === sensorId);
+    
+    // Обновляем кнопку
+    document.getElementById('selectedSensorName').textContent = sensor.name;
+    document.getElementById('sensorDropdown').style.display = 'none';
+    sensorDropdownOpen = false;
+    
+    // Загружаем статистику
+    await loadSensorStatistics(sensorId);
+}
+
+// Загрузка статистики датчика
+async function loadSensorStatistics(sensorId) {
+    try {
+        // Загружаем превышения
+        const violationsResponse = await fetch(`/api/sensors/${sensorId}/violations?hours=11720`); 
+        const violationsData = await violationsResponse.json();
+        
+        if (violationsData.success) {
+            document.getElementById('sensorTotalViolations').textContent = violationsData.total;
+            document.getElementById('sensorDayViolations').textContent = violationsData.day;
+            document.getElementById('sensorNightViolations').textContent = violationsData.night;
+        }
+        
+        // Загружаем средний уровень шума
+        const statsResponse = await fetch(`/api/sensors/${sensorId}/stats`);
+        const statsData = await statsResponse.json();
+        
+        if (statsData.success) {
+            document.getElementById('sensorAvgNoise').textContent = 
+                `${statsData.average_noise.toFixed(1)} dB`;
+            document.getElementById('sensorAddress').textContent = statsData.address || '--';
+            document.getElementById('sensorType').textContent = statsData.sensor_type || '--';
+            document.getElementById('sensorLastUpdate').textContent = 
+                statsData.last_measurement ? 
+                new Date(statsData.last_measurement).toLocaleString('ru-RU') : '--';
+        }
+        
+    } catch (e) {
+        console.error('Ошибка загрузки статистики датчика:', e);
+        document.getElementById('sensorTotalViolations').textContent = '--';
+        document.getElementById('sensorAvgNoise').textContent = '-- dB';
+    }
+}
+
+// Закрытие dropdown при клике вне
+document.addEventListener('click', (e) => {
+    const selectorBtn = document.getElementById('sensorSelectorBtn');
+    const dropdown = document.getElementById('sensorDropdown');
+    
+    if (sensorDropdownOpen && !selectorBtn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+        sensorDropdownOpen = false;
+    }
+});
+
+// Загрузка при открытии панели аномалий
+const originalOpenAnomalyPanel = document.getElementById('openAnomalyPanel')?.onclick;
+document.getElementById('openAnomalyPanel')?.addEventListener('click', () => {
+    document.getElementById('anomalyPanel').style.display = 'block';
+    loadAnomalyData();
+    // Загружаем статистику выбранного датчика
+    loadSensorStatistics(currentSelectedSensor);
+});
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    loadSensorStatistics(currentSelectedSensor);
+});
+
+// === Загрузка статистики превышений для датчика ===
+async function loadSensorViolations(sensorId) {
+    try {
+        const response = await fetch(`/api/sensors/${sensorId}/violations?hours=11720`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('tooltip-violations-total').textContent = data.total;
+            document.getElementById('tooltip-violations-day').textContent = data.day;
+            document.getElementById('tooltip-violations-night').textContent = data.night;
+        } else {
+            document.getElementById('tooltip-violations-total').textContent = '0';
+            document.getElementById('tooltip-violations-day').textContent = '0';
+            document.getElementById('tooltip-violations-night').textContent = '0';
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки превышений:', e);
+        document.getElementById('tooltip-violations-total').textContent = '—';
+        document.getElementById('tooltip-violations-day').textContent = '—';
+        document.getElementById('tooltip-violations-night').textContent = '—';
+    }
+}
+
+function renderHistogramSimple(containerId, legendId, sensorData) {
+    const container = document.getElementById(containerId);
+    const legend = document.getElementById(legendId);
+    
+    if (!container || !legend) {
+        console.warn(`⚠️ Элементы не найдены: #${containerId} или #${legendId}`);
+        return;
+    }
+    
+    // Очистка
+    container.innerHTML = '';
+    legend.innerHTML = '';
+    container.className = 'histogram-container';
+    
+    if (!sensorData || sensorData.length === 0) {
+        container.innerHTML = '<div style="color:#999;text-align:center;width:100%;padding:60px;font-size:0.95rem;">📭 Нет превышений за этот период</div>';
+        return;
+    }
+    
+    const FIXED_SENSOR_COLORS = {
+        'noise_sensor_001': { primary: '#667eea', secondary: '#764ba2cc' },  // ИВМиМГ — фиолетовый
+        'noise_sensor_002': { primary: '#4facfe', secondary: '#00f2fecc' },  // НГУ — голубой
+        'noise_sensor_003': { primary: '#f093fb', secondary: '#f5576ccc' },  // ТЦ Академ — розовый
+        'noise_sensor_004': { primary: '#43e97b', secondary: '#38f9d7cc' },  // Бердское шоссе — зелёный
+        'air_sensor_001': { primary: '#38f9d7', secondary: '#43e97bcc' },
+        'air_sensor_002': { primary: '#fa709a', secondary: '#fee140cc' },
+        'vibration_sensor_001': { primary: '#30cfd0', secondary: '#330867cc' }
+    };
+    
+    const FALLBACK_COLORS = [
+        { primary: '#667eea', secondary: '#764ba2cc' },
+        { primary: '#f093fb', secondary: '#f5576ccc' },
+        { primary: '#4facfe', secondary: '#00f2fecc' },
+        { primary: '#43e97b', secondary: '#38f9d7cc' },
+        { primary: '#fa709a', secondary: '#fee140cc' },
+        { primary: '#30cfd0', secondary: '#330867cc' }
+    ];
+    
+    const maxValue = Math.max(...sensorData.map(s => s.count), 1);
+    const maxBarHeight = 170;
+    const minBarHeight = 8;
+    
+    console.log(`📊 Отрисовка гистограммы: ${sensorData.length} датчиков, максимум=${maxValue}`);
+    
+    // Рисуем каждый бар
+    sensorData.forEach((item, idx) => {
+        const count = item.count;
+        const name = item.sensor_name || 'Неизвестно';
+        const sensorId = item.sensor_id || '';
+        let colorSet;
+        if (FIXED_SENSOR_COLORS[sensorId]) {
+            colorSet = FIXED_SENSOR_COLORS[sensorId];
+        } else {
+            colorSet = FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+        }
+        const pixelHeight = count > 0 
+            ? Math.max((count / maxValue) * maxBarHeight, minBarHeight)
+            : minBarHeight;
+        
+        const shortName = name.length > 16 ? name.slice(0, 16) + '…' : name;
+        
+        // Обёртка
+        const wrap = document.createElement('div');
+        wrap.className = 'histogram-bar-wrapper';
+        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;flex:1;min-width:50px;max-width:70px;padding:0 4px;';
+        
+        // Значение над баром
+        const val = document.createElement('div');
+        val.className = 'histogram-value';
+        val.textContent = count;
+        
+        // Сам бар
+        const bar = document.createElement('div');
+        bar.className = 'histogram-bar';
+        bar.style.cssText = `
+            width:100%;
+            min-height:${pixelHeight}px;
+            background:linear-gradient(180deg,${colorSet.primary},${colorSet.secondary});
+            border-radius:6px 6px 0 0;
+            transition:height 0.5s ease, transform 0.2s;
+            box-shadow:0 2px 6px rgba(0,0,0,0.15);
+            cursor:pointer;
+        `;
+        bar.title = `${name}: ${count} превышений`;
+        bar.onmouseenter = () => bar.style.transform = 'translateY(-3px)';
+        bar.onmouseleave = () => bar.style.transform = 'translateY(0)';
+        
+        // Подпись
+        const label = document.createElement('div');
+        label.className = 'histogram-label';
+        label.textContent = shortName;
+        label.title = name; // полное название в tooltip
+        
+        // Сборка
+        wrap.appendChild(val);
+        wrap.appendChild(bar);
+        wrap.appendChild(label);
+        container.appendChild(wrap);
+        
+        // Элемент легенды
+        const leg = document.createElement('div');
+        leg.className = 'legend-item';
+        leg.innerHTML = `
+            <div class="legend-color" style="background:linear-gradient(180deg,${colorSet.primary},${colorSet.secondary});border-radius:3px;width:14px;height:14px;flex-shrink:0;"></div>
+            <span>${name} <b>(${count})</b></span>
+        `;
+        legend.appendChild(leg);
+        bar.style.opacity = '0';
+        bar.style.height = '0';
+        setTimeout(() => { 
+            bar.style.opacity = '1'; 
+            bar.style.height = `${pixelHeight}px`;
+        }, idx * 80 + 50);
+    });
+}
+
+async function loadPeriodStats() {
+    
+    try {
+        // Неделя
+        const weekRes = await fetch('/api/anomalies/period?days=7');
+        if (!weekRes.ok) throw new Error(`HTTP ${weekRes.status}`);
+        const weekData = await weekRes.json();
+        console.log('📅 Неделя:', weekData.success ? 'OK' : 'ERROR', weekData);
+        
+        if (weekData.success) {
+            // Обновляем счётчики
+            ['weekTotalAnomalies', 'weekDayCount', 'weekNightCount'].forEach((id, i) => {
+                const el = document.getElementById(id);
+                const val = [weekData.total, weekData.day_count, weekData.night_count][i] || 0;
+                if (el) el.textContent = val.toLocaleString('ru-RU');
+            });
+            // Рисуем гистограмму
+            renderHistogramSimple('weekHistogram', 'weekHistogramLegend', weekData.by_sensor || []);
+        }
+        
+        // Месяц
+        const monthRes = await fetch('/api/anomalies/period?days=30');
+        if (!monthRes.ok) throw new Error(`HTTP ${monthRes.status}`);
+        const monthData = await monthRes.json();
+        console.log('📅 Месяц:', monthData.success ? 'OK' : 'ERROR', monthData);
+        
+        if (monthData.success) {
+            ['monthTotalAnomalies', 'monthDayCount', 'monthNightCount'].forEach((id, i) => {
+                const el = document.getElementById(id);
+                const val = [monthData.total, monthData.day_count, monthData.night_count][i] || 0;
+                if (el) el.textContent = val.toLocaleString('ru-RU');
+            });
+            renderHistogramSimple('monthHistogram', 'monthHistogramLegend', monthData.by_sensor || []);
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки периодов:', error);
+    }
+}
+
+function connectMSeedWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/mseed`;
+    
+    console.log('🔌 Подключение к:', wsUrl);
+    mseedWebSocket = new WebSocket(wsUrl);
+    
+    mseedWebSocket.onopen = () => {
+        console.log('WebSocket miniSEED подключен');
+        setInterval(() => {
+            if (mseedWebSocket?.readyState === WebSocket.OPEN) {
+                mseedWebSocket.send('ping');
+            }
+        }, 30000);
+    };
+    
+    mseedWebSocket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('Получено:', data);
+            
+            if (data.type === 'mseed_update') {
+                updateMarkerFromMSeed(data);
+            }
+        } catch (e) {
+            console.error('Ошибка парсинга:', e);
+        }
+    };
+    
+    mseedWebSocket.onclose = () => {
+        console.log('WebSocket отключен. Переподключение...');
+        setTimeout(connectMSeedWebSocket, 3000);
+    };
+    
+    mseedWebSocket.onerror = (error) => {
+        console.error('WebSocket ошибка:', error);
+    };
+}
+
+
+
+function updateMarkerFromMSeed(data) {
+    const marker = markersMap[data.sensor_id];
+    if (!marker) {
+        console.warn(`Маркер ${data.sensor_id} не найден`);
+        return;
+    }
+    
+    const noiseLevel = data.noise_level;
+    const noiseClass = getNoiseClass(noiseLevel);
+    
+    marker.currentData.noise = noiseLevel;
+    marker.currentData.lastUpdate = new Date(data.timestamp);
+    
+    marker.setIcon(L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div class="sensor-marker-dB ${noiseClass}">${noiseLevel.toFixed(1)} dB</div>`,
+        iconSize: [80, 30],
+        iconAnchor: [40, 15]
+    }));
+    
+    if (activeTooltip && marker.currentData.name === activeTooltip.querySelector('.tooltip-title')?.textContent) {
+        const valEl = activeTooltip.querySelector('.tooltip-value-big');
+        if (valEl) {
+            valEl.innerHTML = `${noiseLevel.toFixed(1)} <span style="font-size:1rem">dB</span>`;
+            valEl.style.color = getNoiseColor(noiseLevel);
+        }
+    }
+    
+    console.log(`${data.sensor_id}: ${noiseLevel} dB`);
+}
+
+connectMSeedWebSocket();
+
+    </script>
+</body>
+</html>
