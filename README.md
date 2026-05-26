@@ -139,7 +139,7 @@ WS	/ws/vibration			Поток вибрации
 
 
 
-## 🧪 Запуск тестов
+##  Запуск тестов
 1. Запусти сервер: `cd backend && python main.py`
 2. В новом терминале: `cd client_test && python api_client_full.py`
 3. Нагрузочный тест: `python load_test_client.py`
